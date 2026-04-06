@@ -2,8 +2,8 @@
 <html lang="ms">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Arcade Ultimate Collection</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Arcade Ultimate Collection - PRO Edition</title>
     
     <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
     
@@ -12,13 +12,11 @@
             --neon-green: #00ff00;
             --arcade-red: #ff004c;
             --retro-blue: #00d4ff;
+            --capcom-yellow: #ffcc00;
         }
 
         body {
-            /* Background bergerak ala Synthwave/Cyberpunk */
-            background: linear-gradient(45deg, #0f0c29, #302b63, #24243e);
-            background-size: 400% 400%;
-            animation: gradientBG 15s ease infinite;
+            background: #000;
             color: #fff;
             font-family: 'Press Start 2P', cursive;
             margin: 0;
@@ -28,252 +26,294 @@
             height: 100vh;
             flex-direction: column;
             overflow: hidden;
+            perspective: 1000px;
         }
 
-        @keyframes gradientBG {
-            0% { background-position: 0% 50%; }
-            50% { background-position: 100% 50%; }
-            100% { background-position: 0% 50%; }
+        /* ----- ANIMASI LATAR BELAKANG SYNTHWAVE ----- */
+        .bg-animation {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            z-index: -1;
+            background: linear-gradient(to bottom, #050520 0%, #004488 50%, #0088aa 100%);
+            overflow: hidden;
+        }
+
+        .grid-floor {
+            position: absolute;
+            bottom: 0; width: 200%; height: 50%;
+            background-image: 
+                linear-gradient(0deg, transparent 24%, rgba(0, 212, 255, .3) 25%, rgba(0, 212, 255, .3) 26%, transparent 27%, transparent 74%, rgba(0, 212, 255, .3) 75%, rgba(0, 212, 255, .3) 76%, transparent 77%, transparent),
+                linear-gradient(90deg, transparent 24%, rgba(0, 212, 255, .3) 25%, rgba(0, 212, 255, .3) 26%, transparent 27%, transparent 74%, rgba(0, 212, 255, .3) 75%, rgba(0, 212, 255, .3) 76%, transparent 77%, transparent);
+            background-size: 60px 60px;
+            transform: rotateX(60deg) translateX(-25%);
+            animation: gridMove 2s linear infinite;
+        }
+
+        @keyframes gridMove {
+            from { background-position: 0 0; }
+            to { background-position: 0 60px; }
         }
 
         /* ----- MESIN ARCADE ----- */
         .arcade-cabinet {
             background: #1a1a1a;
-            padding: 25px;
-            border: 10px solid #444;
-            border-radius: 30px 30px 5px 5px;
+            padding: 20px;
+            border: 6px solid #444;
+            border-radius: 20px 20px 0 0;
             box-shadow: 0 0 50px rgba(0,0,0,0.9), 0 0 20px var(--retro-blue);
             width: 90%;
-            max-width: 650px;
-            position: relative;
-            animation: slideUp 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            max-width: 550px;
+            z-index: 10;
+            animation: cabinetEntry 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
 
-        @keyframes slideUp {
-            from { transform: translateY(100px); opacity: 0; }
-            to { transform: translateY(0); opacity: 1; }
+        @keyframes cabinetEntry {
+            0% { transform: translateY(100px); opacity: 0; }
+            100% { transform: translateY(0); opacity: 1; }
         }
 
-        /* ----- SKRIN CRT MODEN ----- */
         .screen {
             background-color: #050505;
-            height: 350px;
-            border: 15px solid #222;
-            border-radius: 15px;
+            height: 300px;
+            border: 10px solid #222;
+            border-radius: 10px;
             position: relative;
             overflow: hidden;
-            padding: 30px;
+            padding: 20px;
             box-sizing: border-box;
-            box-shadow: inset 0 0 60px rgba(0, 255, 0, 0.1);
         }
 
-        /* Kesan Flicker TV */
-        .screen::before {
-            content: " ";
-            display: block;
-            position: absolute;
-            top: 0; left: 0; bottom: 0; right: 0;
-            background: rgba(18, 16, 16, 0.1);
-            opacity: 0;
-            z-index: 3;
-            pointer-events: none;
-            animation: flicker 0.15s infinite;
-        }
-
-        @keyframes flicker {
-            0% { opacity: 0.1; }
-            50% { opacity: 0.05; }
-            100% { opacity: 0.15; }
-        }
-
-        /* Garisan Scanline */
         .scanlines {
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.2) 50%);
             background-size: 100% 4px;
-            z-index: 4;
-            pointer-events: none;
+            z-index: 5; pointer-events: none;
         }
 
         h1 {
-            color: #fff;
+            color: var(--capcom-yellow);
             text-align: center;
-            font-size: 22px;
-            text-shadow: 3px 3px var(--arcade-red), -3px -3px var(--retro-blue);
-            margin-bottom: 40px;
-            letter-spacing: 2px;
+            font-size: 18px;
+            margin-bottom: 30px;
+            text-shadow: 3px 3px #000;
         }
 
-        /* ----- MENU ----- */
+        /* ----- MENU ITEMS ----- */
         ul { list-style: none; padding: 0; }
-
         li {
             color: #666;
-            font-size: 16px;
-            margin-bottom: 25px;
-            transition: all 0.2s;
-            position: relative;
+            font-size: 14px;
+            margin-bottom: 20px;
+            transition: 0.2s;
             padding-left: 40px;
+            position: relative;
+            text-transform: uppercase;
         }
 
         li.selected {
             color: var(--neon-green);
-            transform: scale(1.1);
+            transform: translateX(10px);
             text-shadow: 0 0 10px var(--neon-green);
         }
 
-        /* Cursor Animated */
         li.selected::before {
             content: "▶";
-            position: absolute;
-            left: 0;
-            color: var(--arcade-red);
-            animation: moveSide 0.4s infinite alternate;
+            position: absolute; left: 0;
+            color: #fff;
+            animation: blink 0.3s infinite;
         }
 
-        @keyframes moveSide {
-            from { left: 0px; }
-            to { left: 10px; }
-        }
+        @keyframes blink { 0% { opacity: 0; } 100% { opacity: 1; } }
 
-        /* ----- CONTROLLER ----- */
+        /* ----- CONTROL PANEL ----- */
         .control-panel {
             background: #2a2a2a;
-            border: 8px solid #444;
+            border: 6px solid #444;
             border-top: none;
-            width: 90%;
-            max-width: 650px;
-            padding: 30px;
+            width: 90%; max-width: 550px;
+            padding: 25px;
             display: flex;
-            justify-content: space-around;
+            justify-content: space-between;
             align-items: center;
-            border-radius: 0 0 30px 30px;
-            box-sizing: border-box;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+            border-radius: 0 0 20px 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            z-index: 10;
         }
 
-        .btn-dir, .btn-action {
+        .joystick-area {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .btn-nav {
+            width: 50px; height: 50px;
+            background: #444; border: 4px solid #000;
+            color: white; border-radius: 8px;
+            cursor: pointer; box-shadow: 0 5px 0 #222;
             font-family: inherit;
-            cursor: pointer;
-            border: 4px solid #000;
-            box-shadow: 0 8px 0 #000;
-            transition: 0.1s;
         }
 
-        .btn-dir {
-            width: 60px; height: 60px; border-radius: 10px;
-            background: #444; color: white;
+        .btn-nav:active { transform: translateY(5px); box-shadow: 0 0 0 #000; }
+
+        .button-area {
+            display: flex;
+            gap: 15px;
         }
 
         .btn-action {
-            width: 100px; height: 100px; border-radius: 50%;
-            background: var(--arcade-red);
-            color: #fff; font-size: 14px;
+            width: 85px; height: 85px;
+            font-family: inherit; font-size: 10px;
+            cursor: pointer; border: 4px solid #000;
+            border-radius: 12px; transition: 0.1s;
         }
 
-        .btn-dir:active, .btn-action:active {
-            box-shadow: 0 0 0 #000;
-            transform: translateY(8px);
-        }
+        .btn-start { background: var(--arcade-red); color: white; box-shadow: 0 6px 0 #800; }
+        .btn-info { background: var(--capcom-yellow); color: black; box-shadow: 0 6px 0 #a38200; }
+        .btn-action:active { transform: translateY(6px); box-shadow: 0 0 0 #000; }
 
-        .instructions {
-            margin-top: 30px;
-            color: rgba(255,255,255,0.4);
-            font-size: 10px;
-            text-align: center;
-            line-height: 2;
+        /* ----- INFO MODAL ----- */
+        .modal-overlay {
+            position: fixed; inset: 0; background: rgba(0, 0, 0, 0.9);
+            display: flex; justify-content: center; align-items: center;
+            z-index: 200; backdrop-filter: blur(5px);
         }
+        .modal-content {
+            background: #111; border: 4px solid var(--retro-blue);
+            padding: 25px; width: 80%; max-width: 400px;
+            text-align: center; box-shadow: 0 0 20px var(--retro-blue);
+            animation: modalPop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        @keyframes modalPop { from { transform: scale(0.5); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        .info-body { text-align: left; font-size: 10px; line-height: 2; margin: 20px 0; }
+        .hidden { display: none !important; }
+
+        /* ----- POPUP BANNER ----- */
+        #banner {
+            position: absolute; top: 40%; left: 0; width: 100%;
+            background: rgba(255, 0, 76, 0.9); color: #fff;
+            text-align: center; padding: 15px 0;
+            border-top: 4px solid #fff; border-bottom: 4px solid #fff;
+            z-index: 100; transform: scaleY(0); transition: 0.3s;
+            font-size: 20px; pointer-events: none;
+        }
+        .show-banner { transform: scaleY(1) !important; }
     </style>
 </head>
 <body>
 
+    <div class="bg-animation">
+        <div class="grid-floor"></div>
+    </div>
+
+    <div id="banner">MISSION START!</div>
+
+    <div id="info-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h2 style="color: var(--capcom-yellow);">CONTROLS</h2>
+            <div class="info-body">
+                <p style="color: var(--retro-blue);">[ MOVEMENT ]</p>
+                <p>ARROW KEYS / PANEL</p>
+                <p style="color: var(--retro-blue);">[ COMBAT ]</p>
+                <p>SPACEBAR: SHOOT</p>
+                <p>ESC: PAUSE GAME</p>
+                <hr style="border: 1px solid #333;">
+                <p style="color: var(--neon-green);">GOAL: REACH STAGE 5 FOR BOSS FIGHT!</p>
+            </div>
+            <button class="btn-action btn-start" onclick="closeInfo()" style="width: 100%; height: 50px;">CLOSE</button>
+        </div>
+    </div>
+
     <div class="arcade-cabinet">
         <div class="screen">
             <div class="scanlines"></div>
-            <h1>SELECT GAMES</h1>
+            <h1>SELECT MISSION</h1>
             <ul id="game-list">
                 <li data-url="kadetblast.html" class="selected">KADET BLAST</li>
                 <li data-url="1941.html">1941 RE-BOOT</li>
                 <li data-url="typing.html">Typing Interstellar</li>
-                <li data-url="">Upcoming Games</li>
+                <li data-url="">Coming Soon</li>
             </ul>
         </div>
     </div>
 
     <div class="control-panel">
-        <div class="joystick">
-            <button class="btn-dir" id="btn-up">▲</button>
-            <div style="height: 10px;"></div>
-            <button class="btn-dir" id="btn-down">▼</button>
+        <div class="joystick-area">
+            <div style="display:flex; gap:10px;">
+                <button class="btn-nav" id="btn-up">▲</button>
+                <button class="btn-nav" id="btn-down">▼</button>
+            </div>
+            <span style="font-size:8px; color:#888; margin-top:5px;">NAVIGATE</span>
         </div>
-        <button class="btn-action" id="btn-start">START</button>
-    </div>
 
-    <div class="instructions">
-        [UP/DOWN] TO NAVIGATE<br>
-        [ENTER/START] TO DEPLOY
+        <div class="button-area">
+            <button class="btn-action btn-info" onclick="showInfo()">INFO</button>
+            <button class="btn-action btn-start" id="btn-start">START</button>
+        </div>
     </div>
 
     <script>
         const gameItems = document.querySelectorAll('#game-list li');
         let currentIndex = 0;
 
-        // Sound Effect (Web Audio API)
-        function playSound(freq) {
-            const context = new (window.AudioContext || window.webkitAudioContext)();
-            const osc = context.createOscillator();
-            const gain = context.createGain();
-            osc.type = "square";
-            osc.frequency.setValueAtTime(freq, context.currentTime);
-            gain.gain.setValueAtTime(0.1, context.currentTime);
-            osc.connect(gain);
-            gain.connect(context.destination);
-            osc.start();
-            osc.stop(context.currentTime + 0.1);
+        function playSound(freq, duration = 0.1) {
+            try {
+                const context = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = context.createOscillator();
+                const gain = context.createGain();
+                osc.type = "square";
+                osc.frequency.setValueAtTime(freq, context.currentTime);
+                gain.gain.setValueAtTime(0.05, context.currentTime);
+                osc.connect(gain);
+                gain.connect(context.destination);
+                osc.start();
+                osc.stop(context.currentTime + duration);
+            } catch(e) { console.log("Audio not supported yet"); }
         }
 
-        function updateSelection() {
-            gameItems.forEach((item, index) => {
-                item.classList.toggle('selected', index === currentIndex);
-            });
-            playSound(150); // Bunyi rendah bila tukar menu
+        function updateMenu() {
+            gameItems.forEach((li, i) => li.classList.toggle('selected', i === currentIndex));
+            playSound(150);
         }
 
-        function moveUp() {
-            if (currentIndex > 0) {
-                currentIndex--;
-                updateSelection();
-            }
+        function moveUp() { if(currentIndex > 0) { currentIndex--; updateMenu(); } }
+        function moveDown() { if(currentIndex < gameItems.length - 1) { currentIndex++; updateMenu(); } }
+
+        function showInfo() {
+            playSound(300);
+            document.getElementById('info-modal').classList.remove('hidden');
         }
 
-        function moveDown() {
-            if (currentIndex < gameItems.length - 1) {
-                currentIndex++;
-                updateSelection();
-            }
+        function closeInfo() {
+            playSound(100);
+            document.getElementById('info-modal').classList.add('hidden');
         }
 
-        function launchGame() {
-            playSound(400); // Bunyi tinggi bila pilih
+        function startMission() {
             const url = gameItems[currentIndex].getAttribute('data-url');
             if(!url) return;
 
-            // Efek Flash
-            document.querySelector('.screen').style.backgroundColor = "white";
+            playSound(400, 0.3);
+            const banner = document.getElementById('banner');
+            banner.textContent = gameItems[currentIndex].textContent + " START!";
+            banner.classList.add('show-banner');
+
             setTimeout(() => {
                 window.location.href = url;
-            }, 200);
+            }, 1500);
         }
 
+        // Event Listeners
         document.getElementById('btn-up').addEventListener('click', moveUp);
         document.getElementById('btn-down').addEventListener('click', moveDown);
-        document.getElementById('btn-start').addEventListener('click', launchGame);
+        document.getElementById('btn-start').addEventListener('click', startMission);
 
         window.addEventListener('keydown', (e) => {
-            if (e.key === 'ArrowUp') moveUp();
-            if (e.key === 'ArrowDown') moveDown();
-            if (e.key === 'Enter') launchGame();
+            if(e.key === "ArrowUp") moveUp();
+            if(e.key === "ArrowDown") moveDown();
+            if(e.key === "Enter") startMission();
+            if(e.key === "Escape") closeInfo();
         });
     </script>
 </body>
