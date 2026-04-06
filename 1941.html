@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Sky Ace 1941 - Deluxe Edition</title>
+    <title>Sky Ace 1941 - Gempak Edition</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
         body { margin: 0; background: #000; color: #fff; font-family: 'Press Start 2P', cursive; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; }
@@ -16,9 +16,9 @@
         .boss-hp { width: 100%; height: 15px; border: 2px solid #ff0; background: #222; }
         #boss-hp-fill { height: 100%; background: #ff0; width: 100%; transition: width 0.2s; }
         .screen { position: absolute; inset: 0; background: rgba(0,0,0,0.85); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 100; text-align: center; }
-        .btn { background: #f8b800; color: #000; padding: 15px; border: 4px solid #fff; cursor: pointer; font-family: inherit; margin-top: 20px; font-size: 12px; }
-        .btn:hover { background: #fff; color: #000; }
-        #msg { position: absolute; top: 40%; width: 100%; text-align: center; font-size: 18px; color: #0ff; opacity: 0; transition: 0.5s; pointer-events: none; z-index: 50; }
+        .btn { background: #f8b800; color: #000; padding: 15px; border: 4px solid #fff; cursor: pointer; font-family: inherit; margin-top: 20px; font-size: 12px; box-shadow: 0 5px 0 #a37900; }
+        .btn:active { transform: translateY(3px); box-shadow: 0 2px 0 #a37900; }
+        #msg { position: absolute; top: 40%; width: 100%; text-align: center; font-size: 18px; color: #0ff; opacity: 0; transition: 0.5s; pointer-events: none; z-index: 50; text-shadow: 2px 2px #000; }
         .hidden { display: none !important; }
         #pause-text { color: #f8b800; animation: blink 1s infinite; }
         @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
@@ -30,7 +30,7 @@
     <div class="hud">
         SCORE: <span id="score-val">0</span> | STAGE: <span id="lvl-val">1</span>
         <div class="hp-bar"><div id="hp-fill"></div></div>
-        <div id="pw-tag" style="margin-top:5px; color:#0ff;"></div>
+        <div id="pw-tag" style="margin-top:5px; color:#0ff; font-size: 8px;"></div>
     </div>
 
     <div id="boss-ui">
@@ -42,7 +42,7 @@
     <div id="msg">STAGE CLEAR</div>
 
     <div id="start-screen" class="screen">
-        <h1 style="color:#f8b800; line-height: 1.5; font-size: 24px;">SKY ACE<br>1941</h1>
+        <h1 style="color:#f8b800; line-height: 1.5; font-size: 24px; text-shadow: 4px 4px #440000;">SKY ACE<br>1941</h1>
         <p style="font-size: 9px; color:#aaa; margin-top: 15px; line-height: 1.8;">
             ARROW KEYS : Move<br>SPACEBAR : Shoot<br>ESC : Pause Game
         </p>
@@ -67,47 +67,59 @@
     const V_WIDTH = 360, V_HEIGHT = 640;
     
     let gameActive = false, isPaused = false;
-    let score = 0, level = 1, keys = {};
-    let bullets = [], enemyBullets = [], enemies = [], powerUps = [], stars = [], lastTime = 0;
+    let score = 0, level = 1, keys = {}, shake = 0;
+    let bullets = [], enemyBullets = [], enemies = [], powerUps = [], stars = [], particles = [], lastTime = 0;
+
+    // --- AUDIO ENGINE (WEB AUDIO API) ---
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    function playSfx(freq, type, duration, vol=0.1) {
+        if (!gameActive || isPaused) return;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(10, audioCtx.currentTime + duration);
+        gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.start(); osc.stop(audioCtx.currentTime + duration);
+    }
+
+    const sfx = {
+        shoot: () => playSfx(440, 'square', 0.1, 0.05),
+        exp: () => playSfx(150, 'sawtooth', 0.3, 0.15),
+        hit: () => playSfx(100, 'sine', 0.1, 0.1),
+        powerup: () => {
+            playSfx(600, 'sine', 0.4, 0.1);
+            setTimeout(() => playSfx(800, 'sine', 0.4, 0.1), 100);
+        }
+    };
 
     // Entiti
     const player = { x: 160, y: 550, w: 35, h: 35, hp: 100, speed: 5, lastShot: 0, shotDelay: 150, pType: 'single', pTimer: 0, iFrames: 0 };
     const boss = { active: false, x: 100, y: -150, w: 140, h: 80, hp: 100, maxHp: 500, speed: 1.5, dir: 1, lastShot: 0, phase: 1 };
 
-    // --- SENI PIKSEL (PIXEL ART MATRICES) ---
-    // 1: Body, 2: Cockpit/Detail, 3: Engine/Exhaust, 4: Wing tip
-    const playerSprite = [
-        "   2   ",
-        "   1   ",
-        "  121  ",
-        " 11111 ",
-        "1112111",
-        "1  1  1",
-        "   3   "
-    ];
+    // Sprites
+    const playerSprite = ["   2   ", "   1   ", "  121  ", " 11111 ", "1112111", "1  1  1", "   3   "];
     const pColors = {'1': '#5a7c38', '2': '#a0c0a0', '3': '#ffaa00'};
-
-    const enemySprite = [
-        " 1 1 ",
-        "11111",
-        " 121 ",
-        " 111 ",
-        "  3  "
-    ];
+    const enemySprite = [" 1 1 ", "11111", " 121 ", " 111 ", "  3  "];
     const eColors = {'1': '#cc0000', '2': '#ffffff', '3': '#ff5500'};
-
-    const bossSprite = [
-        "   11111   ",
-        "  1122211  ",
-        " 111222111 ",
-        "11111111111",
-        "41113131114",
-        "4 1111111 4",
-        "   1   1   "
-    ];
+    const bossSprite = ["   11111   ", "  1122211  ", " 111222111 ", "11111111111", "41113131114", "4 1111111 4", "   1   1   "];
     const bColors = {'1': '#555555', '2': '#222222', '3': '#ff0000', '4': '#aaaaaa'};
 
-    // Fungsi lukis piksel
+    function createExplosion(x, y, color, count = 8) {
+        for(let i=0; i<count; i++) {
+            particles.push({
+                x, y, 
+                vx: (Math.random() - 0.5) * 8, 
+                vy: (Math.random() - 0.5) * 8, 
+                life: 1.0, 
+                color
+            });
+        }
+        sfx.exp();
+    }
+
     function drawSprite(matrix, colors, x, y, size) {
         for(let r=0; r<matrix.length; r++) {
             for(let c=0; c<matrix[r].length; c++) {
@@ -120,10 +132,7 @@
         }
     }
 
-    // Bintang Latar Belakang (Parallax)
-    for(let i=0; i<60; i++) {
-        stars.push({x: Math.random()*V_WIDTH, y: Math.random()*V_HEIGHT, s: Math.random()*2+1, sp: Math.random()*3+1});
-    }
+    for(let i=0; i<60; i++) stars.push({x: Math.random()*V_WIDTH, y: Math.random()*V_HEIGHT, s: Math.random()*2+1, sp: Math.random()*3+1});
 
     function resize() {
         const scale = Math.min(window.innerWidth/V_WIDTH, window.innerHeight/V_HEIGHT);
@@ -132,23 +141,21 @@
     }
     window.addEventListener('resize', resize); resize();
 
-    // Input Kawalan
     window.addEventListener('keydown', e => {
         keys[e.code] = true;
-        // Fungsi Pause
         if (e.code === 'Escape' && gameActive && player.hp > 0) {
             isPaused = !isPaused;
             document.getElementById('pause-screen').classList.toggle('hidden', !isPaused);
-            if(!isPaused) lastTime = performance.now(); // Reset masa bila sambung main
+            if(!isPaused) lastTime = performance.now();
         }
     });
     window.addEventListener('keyup', e => keys[e.code] = false);
 
     function startGame() { 
+        if (audioCtx.state === 'suspended') audioCtx.resume();
         document.getElementById('start-screen').classList.add('hidden'); 
         gameActive = true; 
-        player.hp = 100;
-        score = 0; level = 1;
+        player.hp = 100; score = 0; level = 1;
         lastTime = performance.now(); 
         gameLoop(lastTime); 
     }
@@ -160,9 +167,11 @@
     }
 
     function takeDamage(amount) {
-        if (player.iFrames > 0) return; // Kalau tengah kebal, tak tolak darah
+        if (player.iFrames > 0) return;
         player.hp -= amount;
-        player.iFrames = 60; // 60 frames (~1 saat kebal)
+        player.iFrames = 60;
+        shake = 10;
+        sfx.hit();
         updateHpUI();
         if (player.hp <= 0) {
             gameActive = false;
@@ -174,9 +183,7 @@
     function updateHpUI() {
         const hpBar = document.getElementById('hp-fill');
         hpBar.style.width = Math.max(0, player.hp) + '%';
-        if(player.hp > 50) hpBar.style.background = '#0f0';
-        else if(player.hp > 25) hpBar.style.background = '#ff0';
-        else hpBar.style.background = '#f00';
+        hpBar.style.background = player.hp > 50 ? '#0f0' : (player.hp > 25 ? '#ff0' : '#f00');
     }
 
     function fire() {
@@ -187,27 +194,20 @@
         const type = player.pTimer > now ? player.pType : 'single';
         const px = player.x + player.w/2 - 2;
         
+        sfx.shoot();
         if (type === 'single') bullets.push({x: px, y: player.y, w: 4, h: 14, vx: 0, dmg: 10, c: '#ff0'});
-        if (type === 'double') {
+        else if (type === 'double') {
             bullets.push({x: player.x+5, y: player.y+10, w: 4, h: 14, vx: 0, dmg: 10, c: '#ff0'});
             bullets.push({x: player.x+player.w-9, y: player.y+10, w: 4, h: 14, vx: 0, dmg: 10, c: '#ff0'});
         }
-        if (type === 'wide') {
-            bullets.push({x: px, y: player.y, w: 4, h: 12, vx: 0, dmg: 10, c: '#0ff'});
-            bullets.push({x: px, y: player.y, w: 4, h: 12, vx: -3, dmg: 10, c: '#0ff'});
-            bullets.push({x: px, y: player.y, w: 4, h: 12, vx: 3, dmg: 10, c: '#0ff'});
+        else if (type === 'wide') {
+            [-3, 0, 3].forEach(vx => bullets.push({x: px, y: player.y, w: 4, h: 12, vx, dmg: 10, c: '#0ff'}));
         }
-        if (type === 'missile') {
-            bullets.push({x: px-4, y: player.y, w: 12, h: 24, vx: 0, dmg: 40, c: '#f0f'});
+        else if (type === 'missile') bullets.push({x: px-4, y: player.y, w: 12, h: 24, vx: 0, dmg: 40, c: '#f0f'});
+        else if (type === 'rapid') bullets.push({x: px, y: player.y, w: 4, h: 16, vx: 0, dmg: 10, c: '#fff'});
+        else if (type === 'fire') {
+            for(let i=0; i<2; i++) bullets.push({x: px, y: player.y, w: 8, h: 8, vx: (Math.random()-0.5)*4, dmg: 15, c: i==0?'#f40':'#fa0'});
         }
-        if (type === 'rapid') {
-            bullets.push({x: px, y: player.y, w: 4, h: 16, vx: 0, dmg: 10, c: '#fff'});
-        }
-        if (type === 'fire') {
-            bullets.push({x: px, y: player.y, w: 8, h: 8, vx: (Math.random()-0.5)*4, dmg: 15, c: '#f40'});
-            bullets.push({x: px, y: player.y, w: 8, h: 8, vx: (Math.random()-0.5)*4, dmg: 15, c: '#ffaa00'});
-        }
-        
         player.lastShot = now;
     }
 
@@ -215,23 +215,26 @@
         if(!gameActive || isPaused) return;
 
         if (player.iFrames > 0) player.iFrames--;
+        if (shake > 0) shake *= 0.9;
         
         stars.forEach(s => { s.y += s.sp; if(s.y > V_HEIGHT) s.y = -5; });
         
-        // Pergerakan Pemain
+        // Particles logic
+        particles.forEach((p, i) => {
+            p.x += p.vx; p.y += p.vy; p.life -= 0.02;
+            if(p.life <= 0) particles.splice(i, 1);
+        });
+
         if(keys['ArrowLeft'] && player.x > 0) player.x -= player.speed;
         if(keys['ArrowRight'] && player.x < V_WIDTH - player.w) player.x += player.speed;
         if(keys['ArrowUp'] && player.y > 0) player.y -= player.speed;
         if(keys['ArrowDown'] && player.y < V_HEIGHT - player.h) player.y += player.speed;
         if(keys['Space']) fire();
 
-        // Peluru pemain
         bullets.forEach((b, i) => { b.y -= 12; b.x += b.vx; if(b.y < -50) bullets.splice(i, 1); });
 
-        // Boss Logik
         if (level > 0 && level % 5 === 0 && !boss.active) { 
-            boss.active = true; 
-            boss.maxHp = 400 + (level*100); boss.hp = boss.maxHp; 
+            boss.active = true; boss.maxHp = 400 + (level*100); boss.hp = boss.maxHp; 
             boss.y = -150; boss.x = V_WIDTH/2 - boss.w/2;
             enemies = []; enemyBullets = [];
         }
@@ -239,15 +242,12 @@
         if (boss.active) {
             document.getElementById('boss-ui').style.display = 'block';
             if (boss.y < 40) boss.y += 1; 
-            
             boss.x += boss.speed * boss.dir;
             if (boss.x <= 0 || boss.x >= V_WIDTH - boss.w) boss.dir *= -1;
             
-            // Serangan boss
             if (boss.y >= 40 && Date.now() - boss.lastShot > 600 - (level*10)) {
-                let bx1 = boss.x + boss.w*0.2; let bx2 = boss.x + boss.w*0.8; let by = boss.y + boss.h - 10;
-                enemyBullets.push({x: bx1, y: by, w: 6, h: 12, vx: -1.5, vy: 5, dmg: 15, c: '#f00'});
-                enemyBullets.push({x: bx2, y: by, w: 6, h: 12, vx: 1.5, vy: 5, dmg: 15, c: '#f00'});
+                enemyBullets.push({x: boss.x + boss.w*0.2, y: boss.y + boss.h - 10, w: 6, h: 12, vx: -1.5, vy: 5, dmg: 15, c: '#f00'});
+                enemyBullets.push({x: boss.x + boss.w*0.8, y: boss.y + boss.h - 10, w: 6, h: 12, vx: 1.5, vy: 5, dmg: 15, c: '#f00'});
                 boss.lastShot = Date.now();
             }
 
@@ -258,6 +258,8 @@
                     boss.hp -= b.dmg; bullets.splice(bi, 1);
                     if (boss.hp <= 0) {
                         boss.active = false; score += 5000; level++;
+                        createExplosion(boss.x + boss.w/2, boss.y + boss.h/2, '#f00', 30);
+                        shake = 20;
                         document.getElementById('boss-ui').style.display = 'none';
                         showMsg("BOSS DESTROYED!");
                         spawnPowerUp(boss.x + boss.w/2, boss.y + boss.h/2);
@@ -265,69 +267,52 @@
                     }
                 }
             });
-            
-            if (player.x < boss.x + boss.w && player.x + player.w > boss.x && player.y < boss.y + boss.h && player.y + player.h > boss.y) {
-                takeDamage(5); // Damage langgar boss
-            }
         } else {
-            // Spawn musuh biasa
             if (Math.random() < 0.02 + (level*0.003)) {
                 enemies.push({ x: Math.random()*(V_WIDTH-30), y: -50, w: 30, h: 30, speed: 2+level*0.2, hp: 10 + level*2 });
             }
         }
 
-        // Peluru musuh
         enemyBullets.forEach((eb, ebi) => {
             eb.y += eb.vy; eb.x += eb.vx;
             if (eb.x < player.x + player.w && eb.x + eb.w > player.x && eb.y < player.y + player.h && eb.y + eb.h > player.y) {
-                takeDamage(eb.dmg); 
-                enemyBullets.splice(ebi, 1);
+                takeDamage(eb.dmg); enemyBullets.splice(ebi, 1);
             }
             if (eb.y > V_HEIGHT) enemyBullets.splice(ebi, 1);
         });
 
-        // Musuh biasa
         enemies.forEach((e, i) => {
             e.y += e.speed;
-            
-            // Random musuh tembak
-            if(Math.random() < 0.005) {
-                enemyBullets.push({x: e.x + e.w/2, y: e.y + e.h, w: 4, h: 10, vx: 0, vy: 4, dmg: 10, c: '#f40'});
-            }
+            if(Math.random() < 0.005) enemyBullets.push({x: e.x + e.w/2, y: e.y + e.h, w: 4, h: 10, vx: 0, vy: 4, dmg: 10, c: '#f40'});
 
             bullets.forEach((b, bi) => {
                 if (b.x < e.x + e.w && b.x + b.w > e.x && b.y < e.y + e.h && b.y + b.h > e.y) {
                     e.hp -= b.dmg; bullets.splice(bi, 1);
                     if (e.hp <= 0) {
                         score += 100; 
+                        createExplosion(e.x + e.w/2, e.y + e.h/2, '#f40');
                         if(Math.random() < 0.1) spawnPowerUp(e.x, e.y);
                         enemies.splice(i, 1);
-                        if (score > 0 && score % 2000 === 0 && level % 5 !== 0) { 
-                            level++; showMsg("STAGE " + level); 
-                        }
+                        if (score > 0 && score % 2000 === 0 && level % 5 !== 0) { level++; showMsg("STAGE " + level); }
                     }
                 }
             });
 
             if (e.x < player.x + player.w && e.x + e.w > player.x && e.y < player.y + player.h && e.y + e.h > player.y) {
-                takeDamage(20);
-                enemies.splice(i, 1);
+                takeDamage(20); enemies.splice(i, 1);
             }
             if (e.y > V_HEIGHT) enemies.splice(i, 1);
         });
 
-        // Power-Ups
         powerUps.forEach((p, i) => {
             p.y += 2.5;
             if (player.x < p.x+p.w && player.x+player.w > p.x && player.y < p.y+p.h && player.y+player.h > p.y) {
+                sfx.powerup();
                 if (p.type === 'boom') { 
-                    enemies.forEach(e => score += 50);
-                    enemies = []; enemyBullets = []; 
-                    showMsg("SCREEN CLEAR!"); 
-                }
-                else { 
-                    player.pType = p.type; 
-                    player.pTimer = Date.now() + 12000; // Tahan 12 saat
+                    enemies.forEach(e => { score += 50; createExplosion(e.x, e.y, '#fff'); });
+                    enemies = []; enemyBullets = []; shake = 15; showMsg("SCREEN CLEAR!"); 
+                } else { 
+                    player.pType = p.type; player.pTimer = Date.now() + 12000; 
                 }
                 powerUps.splice(i, 1);
             }
@@ -339,34 +324,28 @@
     }
 
     function draw() {
+        ctx.save();
+        if (shake > 0.1) ctx.translate((Math.random()-0.5)*shake, (Math.random()-0.5)*shake);
+        
         ctx.clearRect(0,0,V_WIDTH,V_HEIGHT);
+        stars.forEach(s => { ctx.fillStyle = s.sp > 2.5 ? "#fff" : "#888"; ctx.fillRect(s.x, s.y, s.s, s.s); });
         
-        // Lukis Bintang
-        stars.forEach(s => {
-            ctx.fillStyle = s.sp > 2.5 ? "#fff" : "#888"; // Bintang laju terang sikit
-            ctx.fillRect(s.x, s.y, s.s, s.s);
+        particles.forEach(p => {
+            ctx.globalAlpha = p.life;
+            ctx.fillStyle = p.color;
+            ctx.fillRect(p.x, p.y, 4, 4);
         });
-        
-        // Lukis Pemain (Berkelip jika kebal)
+        ctx.globalAlpha = 1.0;
+
         if (player.iFrames === 0 || Math.floor(Date.now() / 100) % 2 === 0) {
-            drawSprite(playerSprite, pColors, player.x, player.y, 5); // 5 is pixel size (7x5 matrix = 35x35)
+            drawSprite(playerSprite, pColors, player.x, player.y, 5);
         }
 
-        // Lukis Boss
-        if (boss.active) {
-            drawSprite(bossSprite, bColors, boss.x, boss.y, Math.floor(boss.w/11)); // Scale sprite
-        }
-
-        // Lukis Musuh
-        enemies.forEach(e => {
-            drawSprite(enemySprite, eColors, e.x, e.y, 6); // 6 is pixel size (5x5 matrix = 30x30)
-        });
-        
-        // Lukis Peluru
+        if (boss.active) drawSprite(bossSprite, bColors, boss.x, boss.y, Math.floor(boss.w/11));
+        enemies.forEach(e => drawSprite(enemySprite, eColors, e.x, e.y, 6));
         bullets.forEach(b => { ctx.fillStyle = b.c; ctx.fillRect(b.x, b.y, b.w, b.h); });
         enemyBullets.forEach(eb => { ctx.fillStyle = eb.c; ctx.fillRect(eb.x, eb.y, eb.w, eb.h); });
 
-        // Lukis Power-Ups
         powerUps.forEach(p => { 
             ctx.fillStyle = '#222'; ctx.fillRect(p.x, p.y, p.w, p.h);
             ctx.lineWidth = 2; ctx.strokeStyle = p.type === 'missile' ? '#f0f' : (p.type === 'fire' ? '#f40' : (p.type === 'boom' ? '#f00' : '#0f0'));
@@ -374,6 +353,12 @@
             ctx.fillStyle = ctx.strokeStyle; ctx.font = "12px 'Press Start 2P'"; 
             ctx.fillText(p.type[0].toUpperCase(), p.x+4, p.y+16);
         });
+        ctx.restore();
+
+        if (player.hp < 25 && Math.floor(Date.now() / 200) % 2 === 0) {
+            ctx.fillStyle = "rgba(255, 0, 0, 0.1)";
+            ctx.fillRect(0,0,V_WIDTH, V_HEIGHT);
+        }
     }
 
     function showMsg(t) { 
@@ -385,7 +370,6 @@
     function gameLoop(t) {
         requestAnimationFrame(gameLoop);
         if(!gameActive) return;
-        
         if (t - lastTime > 1000/60) { 
             update(); 
             if(!isPaused) draw(); 
