@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Overdrive - Apex Edition (Enhanced)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@400;700;900&display=swap');
+        
+        body {
+            margin: 0; padding: 0; background-color: #050505; color: white;
+            font-family: 'Inter', sans-serif; overflow: hidden; touch-action: none;
+        }
+
+        #game-container {
+            position: relative; width: 100vw; height: 100vh;
+            display: flex; justify-content: center; align-items: center;
+            background: radial-gradient(circle at center, #111 0%, #000 100%);
+        }
+
+        .hud-glass {
+            background: rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(16px) saturate(180%);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.8);
+        }
+
+        .nitro-container {
+            width: 200px; height: 8px; background: rgba(255,255,255,0.1);
+            border-radius: 4px; overflow: hidden; margin-top: 8px;
+        }
+
+        #nitro-fill {
+            width: 0%; height: 100%;
+            background: linear-gradient(90deg, #00f2ff, #0066ff);
+            box-shadow: 0 0 15px #00f2ff;
+            transition: width 0.1s ease-out;
+        }
+
+        .near-miss-pop {
+            position: absolute; color: #fbbf24; font-family: 'Orbitron';
+            font-weight: 900; pointer-events: none; animation: popUp 0.6s ease-out forwards;
+            z-index: 100; text-shadow: 0 0 10px rgba(251, 191, 36, 0.8);
+        }
+
+        @keyframes popUp {
+            0% { transform: scale(0.5) translateY(0); opacity: 0; }
+            50% { transform: scale(1.2) translateY(-40px); opacity: 1; }
+            100% { transform: scale(1) translateY(-60px); opacity: 0; }
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #ff0044 0%, #990022 100%);
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+        }
+
+        .btn-primary:hover { transform: scale(1.05) translateY(-2px); box-shadow: 0 0 30px rgba(255, 0, 68, 0.5); }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <canvas id="gameCanvas"></canvas>
+    
+    <div class="absolute top-6 left-6 hud-glass p-5 z-20 min-w-[220px]">
+        <div class="flex justify-between items-center mb-1">
+            <span class="text-[10px] uppercase tracking-[0.3em] text-red-500 font-black">Score</span>
+            <span id="hi-score-label" class="text-[9px] uppercase text-gray-500 font-bold">BEST: 000000</span>
+        </div>
+        <div id="score" class="text-4xl font-black tracking-tighter font-['Orbitron']">000000</div>
+        
+        <div class="mt-4 flex items-end justify-between">
+            <div>
+                <div class="text-[10px] uppercase tracking-widest text-cyan-400 font-black">Nitro</div>
+                <div class="nitro-container"><div id="nitro-fill"></div></div>
+            </div>
+            <div id="speedo" class="text-2xl font-black italic text-right font-['Orbitron']">0</div>
+        </div>
+    </div>
+
+    <div id="start-menu" class="absolute inset-0 flex flex-col items-center justify-center z-50 bg-black/60 backdrop-blur-md">
+        <h1 class="text-8xl font-black italic tracking-tighter text-white mb-2" style="text-shadow: 0 0 40px rgba(255,0,0,0.4)">OVERDRIVE</h1>
+        <p class="text-red-500 tracking-[0.5em] font-bold uppercase text-xs mb-12">Next-Gen Arcade Racing</p>
+        <button class="btn-primary px-12 py-4 rounded-full font-black uppercase tracking-widest text-lg" onclick="initAndStart()">Launch Engine</button>
+        <div class="mt-8 text-gray-400 text-[10px] uppercase tracking-widest flex gap-8">
+            <span>[WASD] Drive</span>
+            <span>[SHIFT] Nitro</span>
+            <span>[SPACE] Brake</span>
+        </div>
+    </div>
+
+    <div id="game-over" class="hidden absolute inset-0 flex flex-col items-center justify-center z-50 bg-black/80 backdrop-blur-xl">
+        <h2 class="text-6xl font-black italic text-red-600 mb-2">CRITICAL WRECK</h2>
+        <p id="final-score" class="text-2xl font-['Orbitron'] mb-12">SCORE: 000000</p>
+        <button class="btn-primary px-12 py-4 rounded-full font-black uppercase tracking-widest" onclick="startGame()">Try Again</button>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const scoreEl = document.getElementById('score');
+    const hiScoreLabel = document.getElementById('hi-score-label');
+    const nitroFill = document.getElementById('nitro-fill');
+    const speedoEl = document.getElementById('speedo');
+    const startMenu = document.getElementById('start-menu');
+    const gameOverMenu = document.getElementById('game-over');
+
+    let LANE_COUNT = 4, LANE_WIDTH;
+    const MAX_SPEED = 30, NITRO_SPEED = 48, ACCEL = 0.2, FRICTION = 0.08;
+    
+    let gameActive = false, score = 0, hiScore = localStorage.getItem('hiScore') || 0;
+    let distance = 0, gameSpeed = 0, nitroAmount = 40;
+    let player, traffic = [], particles = [], frameCount = 0, shake = 0;
+    let keys = {};
+
+    hiScoreLabel.innerText = `BEST: ${hiScore.toString().padStart(6, '0')}`;
+
+    function resize() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        LANE_WIDTH = canvas.width / LANE_COUNT;
+        if(player) player.y = canvas.height - 180;
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    window.addEventListener('keydown', e => keys[e.code] = true);
+    window.addEventListener('keyup', e => keys[e.code] = false);
+
+    function drawRoundedRect(ctx, x, y, w, h, r) {
+        ctx.beginPath();
+        ctx.roundRect(x, y, w, h, r);
+        ctx.fill();
+    }
+
+    class Vehicle {
+        constructor(x, y, color) {
+            this.w = 56; this.h = 104; this.x = x; this.y = y; this.color = color;
+            this.nearMissed = false;
+        }
+
+        draw(ctx, tilt = 0, isPlayer = false, braking = false) {
+            ctx.save();
+            ctx.translate(this.x + this.w/2, this.y + this.h/2);
+            ctx.rotate(tilt);
+
+            // Cahaya Lampu Depan (Headlight Beams)
+            if (isPlayer) {
+                const beamGrad = ctx.createLinearGradient(0, -this.h/2, 0, -this.h/2 - 300);
+                beamGrad.addColorStop(0, 'rgba(255, 255, 220, 0.4)');
+                beamGrad.addColorStop(1, 'rgba(255, 255, 220, 0)');
+                
+                ctx.fillStyle = beamGrad;
+                ctx.beginPath();
+                ctx.moveTo(-20, -this.h/2);
+                ctx.lineTo(-80, -this.h/2 - 300);
+                ctx.lineTo(80, -this.h/2 - 300);
+                ctx.lineTo(20, -this.h/2);
+                ctx.fill();
+            }
+
+            // Shadow
+            ctx.fillStyle = 'rgba(0,0,0,0.4)';
+            drawRoundedRect(ctx, -this.w/2 + 8, -this.h/2 + 8, this.w, this.h, 12);
+
+            // Body
+            const grad = ctx.createLinearGradient(-this.w/2, 0, this.w/2, 0);
+            grad.addColorStop(0, this.color.dark);
+            grad.addColorStop(0.5, this.color.main);
+            grad.addColorStop(1, this.color.dark);
+            ctx.fillStyle = grad;
+            drawRoundedRect(ctx, -this.w/2, -this.h/2, this.w, this.h, 12);
+
+            // AI Signals
+            if (!isPlayer && this.signalDir !== 0) {
+                if (Math.floor(frameCount / 15) % 2 === 0) {
+                    ctx.shadowBlur = 15; ctx.shadowColor = '#fbbf24';
+                    ctx.fillStyle = '#fbbf24';
+                    const sigX = this.signalDir === -1 ? -this.w/2 + 5 : this.w/2 - 15;
+                    ctx.fillRect(sigX, this.h/2 - 10, 10, 5); // Belakang
+                    ctx.fillRect(sigX, -this.h/2 + 5, 10, 5); // Depan
+                    ctx.shadowBlur = 0;
+                }
+            }
+
+            // Windows
+            ctx.fillStyle = '#0a0b0d';
+            drawRoundedRect(ctx, -this.w/2 + 8, -this.h/2 + 25, this.w - 16, 25, 4);
+
+            // Headlights
+            ctx.shadowBlur = isPlayer ? 20 : 0; ctx.shadowColor = '#fff9e6';
+            ctx.fillStyle = '#fff9e6';
+            ctx.beginPath();
+            ctx.arc(-this.w/2 + 12, -this.h/2 + 8, 6, 0, Math.PI*2);
+            ctx.arc(this.w/2 - 12, -this.h/2 + 8, 6, 0, Math.PI*2);
+            ctx.fill();
+            ctx.shadowBlur = 0;
+
+            // Tail Lights
+            const brakeGlow = braking || (!isPlayer && gameSpeed < 5);
+            ctx.fillStyle = brakeGlow ? '#ff0000' : '#440000';
+            if(brakeGlow) { ctx.shadowBlur = 15; ctx.shadowColor = '#ff0000'; }
+            ctx.fillRect(-this.w/2 + 6, this.h/2 - 10, 14, 6);
+            ctx.fillRect(this.w/2 - 20, this.h/2 - 10, 14, 6);
+
+            ctx.restore();
+        }
+    }
+
+    class Player extends Vehicle {
+        constructor() {
+            super(canvas.width / 2 - 28, canvas.height - 180, { main: '#ff0044', dark: '#660011' });
+            this.steer = 0; this.tilt = 0;
+        }
+
+        update() {
+            const isNitro = keys['ShiftLeft'] && nitroAmount > 0 && gameSpeed > 5;
+            const currentMax = isNitro ? NITRO_SPEED : MAX_SPEED;
+
+            if (keys['KeyA'] || keys['ArrowLeft']) {
+                this.steer = Math.max(this.steer - 1.5, -12);
+                this.tilt = Math.max(this.tilt - 0.04, -0.2);
+            } else if (keys['KeyD'] || keys['ArrowRight']) {
+                this.steer = Math.min(this.steer + 1.5, 12);
+                this.tilt = Math.min(this.tilt + 0.04, 0.2);
+            } else {
+                this.steer *= 0.85; this.tilt *= 0.85;
+            }
+
+            this.x += this.steer;
+            this.x = Math.max(20, Math.min(canvas.width - this.w - 20, this.x));
+
+            if (keys['KeyW'] || keys['ArrowUp'] || isNitro) {
+                gameSpeed += isNitro ? 0.4 : ACCEL;
+            } else if (keys['KeyS'] || keys['ArrowDown'] || keys['Space']) {
+                gameSpeed -= 0.6;
+            } else {
+                gameSpeed -= FRICTION;
+            }
+
+            gameSpeed = Math.max(0, Math.min(currentMax, gameSpeed));
+            if (isNitro) {
+                nitroAmount -= 0.6;
+                shake = 4;
+                if (frameCount % 2 === 0) particles.push(new Particle(this.x + this.w/2, this.y + this.h, '#00f2ff', 8, (Math.random()-0.5)*5, 10));
+            } else {
+                shake = (gameSpeed / MAX_SPEED) * 1.5;
+            }
+            
+            nitroAmount = Math.min(100, nitroAmount + 0.05);
+            nitroFill.style.width = `${nitroAmount}%`;
+        }
+    }
+
+    class Obstacle extends Vehicle {
+        constructor(lane) {
+            const colors = [
+                { main: '#3b82f6', dark: '#1d4ed8' }, 
+                { main: '#10b981', dark: '#064e3b' },
+                { main: '#f59e0b', dark: '#78350f' }
+            ];
+            super((lane * LANE_WIDTH) + (LANE_WIDTH/2) - 28, -200, colors[Math.floor(Math.random()*3)]);
+            this.lane = lane;
+            this.speed = 4 + Math.random() * 6;
+            this.targetX = this.x;
+            this.signalDir = 0; // -1: Left, 1: Right
+            this.changeTimer = Math.random() * 200 + 100;
+        }
+
+        update() {
+            this.y += (gameSpeed - this.speed);
+
+            // AI Lane Changing Logic
+            this.changeTimer--;
+            if (this.changeTimer <= 0) {
+                const canGoLeft = this.lane > 0;
+                const canGoRight = this.lane < LANE_COUNT - 1;
+                
+                if (this.signalDir === 0) {
+                    this.signalDir = Math.random() > 0.5 ? (canGoRight ? 1 : -1) : (canGoLeft ? -1 : 1);
+                    this.changeTimer = 60; // Masa signal sebelum tukar lane
+                } else {
+                    this.lane += this.signalDir;
+                    this.targetX = (this.lane * LANE_WIDTH) + (LANE_WIDTH/2) - 28;
+                    this.signalDir = 0;
+                    this.changeTimer = Math.random() * 300 + 200;
+                }
+            }
+
+            // Smooth movement to target lane
+            this.x += (this.targetX - this.x) * 0.05;
+        }
+    }
+
+    class Particle {
+        constructor(x, y, color, size, vx, vy) {
+            this.x = x; this.y = y; this.color = color; this.size = size;
+            this.vx = vx; this.vy = vy; this.life = 1.0;
+        }
+        update() { this.x += this.vx; this.y += this.vy; this.life -= 0.02; }
+        draw(ctx) {
+            ctx.globalAlpha = this.life; ctx.fillStyle = this.color;
+            ctx.beginPath(); ctx.arc(this.x, this.y, this.size, 0, Math.PI*2); ctx.fill();
+            ctx.globalAlpha = 1;
+        }
+    }
+
+    function createNearMiss(x, y) {
+        const div = document.createElement('div');
+        div.className = 'near-miss-pop';
+        div.style.left = x + 'px';
+        div.style.top = y + 'px';
+        div.innerText = 'NEAR MISS +500';
+        document.getElementById('game-container').appendChild(div);
+        setTimeout(() => div.remove(), 700);
+    }
+
+    function drawEnvironment() {
+        const timeCycle = (distance / 50) % 2000;
+        let bg;
+        if (timeCycle < 800) bg = '#111';
+        else if (timeCycle < 1000) bg = '#2d1b2d';
+        else if (timeCycle < 1600) bg = '#050508';
+        else bg = '#1e293b';
+        
+        ctx.fillStyle = bg;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        ctx.setLineDash([60, 100]);
+        ctx.lineDashOffset = -distance;
+        ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+        ctx.lineWidth = 4;
+        for(let i=1; i<LANE_COUNT; i++) {
+            ctx.beginPath(); ctx.moveTo(i * LANE_WIDTH, 0); ctx.lineTo(i * LANE_WIDTH, canvas.height); ctx.stroke();
+        }
+        ctx.setLineDash([]);
+    }
+
+    function startGame() {
+        gameActive = true; score = 0; distance = 0; gameSpeed = 0; nitroAmount = 50;
+        traffic = []; particles = [];
+        player = new Player();
+        startMenu.classList.add('hidden');
+        gameOverMenu.classList.add('hidden');
+        requestAnimationFrame(gameLoop);
+    }
+
+    function initAndStart() { startGame(); }
+
+    function gameLoop() {
+        if (!gameActive) return;
+
+        ctx.save();
+        if (shake > 0) ctx.translate((Math.random()-0.5)*shake, (Math.random()-0.5)*shake);
+        
+        drawEnvironment();
+        frameCount++;
+        distance += gameSpeed;
+
+        player.update();
+        player.draw(ctx, player.tilt, true, (keys['Space'] || keys['KeyS']));
+
+        // Traffic Spawning with Collision Check
+        if (frameCount % 45 === 0 && gameSpeed > 2) {
+            const lane = Math.floor(Math.random() * LANE_COUNT);
+            const isLaneOccupied = traffic.some(car => car.lane === lane && car.y < 200);
+            if (!isLaneOccupied) {
+                traffic.push(new Obstacle(lane));
+            }
+        }
+
+        for (let i = traffic.length - 1; i >= 0; i--) {
+            const car = traffic[i];
+            car.update();
+            car.draw(ctx);
+
+            // Enhanced Collision Detection (No safe zones!)
+            const dx = player.x - car.x;
+            const dy = player.y - car.y;
+            if (Math.abs(dx) < 52 && Math.abs(dy) < 95) {
+                gameActive = false;
+                if(score > hiScore) {
+                    hiScore = Math.floor(score);
+                    localStorage.setItem('hiScore', hiScore);
+                    hiScoreLabel.innerText = `BEST: ${hiScore.toString().padStart(6, '0')}`;
+                }
+                gameOverMenu.classList.remove('hidden');
+                document.getElementById('final-score').innerText = `SCORE: ${Math.floor(score).toString().padStart(6, '0')}`;
+            }
+
+            if (!car.nearMissed && Math.abs(dx) < 85 && Math.abs(dy) < 60) {
+                score += 500;
+                car.nearMissed = true;
+                createNearMiss(player.x, player.y);
+            }
+
+            if (car.y > canvas.height + 150) {
+                score += gameSpeed * 5;
+                traffic.splice(i, 1);
+            }
+        }
+
+        for (let i = particles.length - 1; i >= 0; i--) {
+            particles[i].update();
+            particles[i].draw(ctx);
+            if (particles[i].life <= 0) particles.splice(i, 1);
+        }
+
+        scoreEl.innerText = Math.floor(score).toString().padStart(6, '0');
+        speedoEl.innerText = Math.floor(gameSpeed * 8);
+
+        ctx.restore();
+        requestAnimationFrame(gameLoop);
+    }
+</script>
+</body>
+</html>
