@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Galaga 2.5D - Operation: SPACE ATTACK</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
+
+        :root {
+            --lcd-green: #33ff33;
+            --lcd-blue: #00ffff;
+            --lcd-red: #ff4444;
+            --lcd-dim: #1a4a1a;
+            --ui-bg: rgba(5, 10, 15, 0.9);
+            --metal-border: #4a5568;
+            --warning-amber: #ffaa00;
+            --arcade-pink: #ff00ff;
+        }
+
+        body, html { 
+            margin: 0; 
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden; 
+            background: #010203; 
+            font-family: 'Share Tech Mono', monospace;
+            color: var(--lcd-green);
+            user-select: none;
+        }
+
+        /* Arcade Scanlines & CRT Effect */
+        .scanline {
+            position: absolute; inset: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 2, 0.06));
+            background-size: 100% 2px, 3px 100%; pointer-events: none; z-index: 200;
+            opacity: 0.8;
+        }
+
+        #hud-container {
+            position: absolute;
+            inset: 0;
+            padding: 20px;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            z-index: 10;
+            box-sizing: border-box;
+        }
+
+        .hud-panel {
+            background: var(--ui-bg);
+            border: 1px solid var(--metal-border);
+            padding: 12px;
+            box-shadow: inset 0 0 15px rgba(51, 255, 51, 0.05);
+            pointer-events: auto;
+        }
+
+        .hud-top { display: flex; justify-content: space-between; align-items: flex-start; width: 100%; }
+        .stat-group { display: flex; flex-direction: column; gap: 10px; }
+
+        .label {
+            font-size: 10px;
+            text-transform: uppercase;
+            color: var(--metal-border);
+            letter-spacing: 1px;
+            margin-bottom: 4px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .value { font-size: 24px; line-height: 1; text-shadow: 0 0 8px var(--lcd-green); }
+
+        .health-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; width: 150px; }
+        .health-cell { height: 10px; background: var(--lcd-dim); border: 1px solid rgba(255,255,255,0.1); }
+        .health-cell.active { background: var(--lcd-green); box-shadow: 0 0 10px var(--lcd-green); }
+
+        #boss-ui {
+            position: absolute; top: 100px; left: 50%; transform: translateX(-50%);
+            width: 80%; max-width: 600px; display: none; text-align: center;
+        }
+        .boss-bar-container { height: 10px; background: #111; border: 1px solid var(--lcd-red); margin-top: 5px; overflow: hidden; }
+        #boss-fill { height: 100%; width: 100%; background: var(--lcd-red); transition: width 0.1s linear; }
+
+        #dialogue-container {
+            position: absolute; bottom: 120px; left: 50%; transform: translateX(-50%);
+            width: 90%; max-width: 550px; min-height: 80px; background: var(--ui-bg);
+            border-left: 4px solid var(--lcd-green); border-right: 1px solid var(--metal-border);
+            border-top: 1px solid var(--metal-border); border-bottom: 1px solid var(--metal-border);
+            padding: 12px; display: none; flex-direction: row; gap: 15px; align-items: center;
+        }
+
+        #portrait { width: 60px; height: 60px; background: #000; border: 1px solid var(--lcd-dim); position: relative; flex-shrink: 0; }
+        #message-text { font-size: 14px; color: #fff; margin: 0; line-height: 1.4; }
+
+        .hud-bottom { display: flex; justify-content: space-between; align-items: flex-end; width: 100%; }
+        .orbital-container { width: 250px; }
+        .progress-bar { width: 100%; height: 6px; background: #111; border: 1px solid var(--metal-border); overflow: hidden; }
+        #orbital-fill { height: 100%; width: 0%; background: var(--warning-amber); box-shadow: 0 0 10px var(--warning-amber); }
+
+        #active-effects { position: absolute; right: 20px; bottom: 120px; display: flex; flex-direction: column; gap: 4px; align-items: flex-end; }
+        .effect-tag { font-size: 10px; background: rgba(0, 255, 255, 0.1); border: 1px solid var(--lcd-blue); color: var(--lcd-blue); padding: 2px 8px; text-transform: uppercase; }
+
+        /* Arcade Menu Overhaul */
+        #overlay {
+            position: absolute; inset: 0; background: radial-gradient(circle, rgba(20,30,48,1) 0%, rgba(0,0,0,1) 100%);
+            display: flex; align-items: center; justify-content: center; z-index: 100;
+            pointer-events: auto;
+        }
+
+        .modal {
+            background: rgba(0, 0, 0, 0.85); 
+            border: 4px double var(--lcd-green);
+            padding: 50px; text-align: center; max-width: 500px; width: 90%;
+            box-shadow: 0 0 30px rgba(51, 255, 51, 0.2), inset 0 0 20px rgba(51, 255, 51, 0.1);
+            position: relative;
+        }
+
+        .modal::before {
+            content: ""; position: absolute; inset: 0;
+            background-image: linear-gradient(rgba(51, 255, 51, 0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(51, 255, 51, 0.05) 1px, transparent 1px);
+            background-size: 20px 20px; pointer-events: none;
+        }
+
+        #overlay-title {
+            font-size: 52px; margin: 0; padding: 0;
+            color: #fff;
+            text-shadow: 0 0 10px var(--lcd-blue), 0 0 20px var(--lcd-blue), 0 0 40px var(--lcd-blue);
+            letter-spacing: 5px;
+            font-weight: 900;
+            animation: titleGlow 2s infinite alternate;
+        }
+
+        @keyframes titleGlow {
+            from { text-shadow: 0 0 10px var(--lcd-blue), 0 0 20px var(--lcd-blue); transform: scale(1); }
+            to { text-shadow: 0 0 20px var(--arcade-pink), 0 0 40px var(--arcade-pink); transform: scale(1.05); }
+        }
+
+        #overlay-desc { 
+            color: var(--warning-amber); 
+            font-size: 14px; 
+            margin: 20px 0; 
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        .high-score-box {
+            margin: 20px 0;
+            border-top: 1px solid var(--metal-border);
+            border-bottom: 1px solid var(--metal-border);
+            padding: 10px 0;
+        }
+
+        .btn-container { display: flex; flex-direction: column; gap: 15px; margin-top: 30px; }
+
+        .btn {
+            background: #000; border: 2px solid var(--lcd-green);
+            color: var(--lcd-green); padding: 15px 30px; cursor: pointer;
+            font-family: inherit; font-size: 18px; text-transform: uppercase;
+            transition: all 0.2s; width: 100%;
+            position: relative; overflow: hidden;
+        }
+        .btn:hover { 
+            background: var(--lcd-green); color: #000; 
+            box-shadow: 0 0 20px var(--lcd-green);
+        }
+        .btn.secondary { border-color: var(--metal-border); color: var(--metal-border); font-size: 14px; }
+        .btn.secondary:hover { border-color: #fff; color: #fff; background: transparent; box-shadow: 0 0 15px #fff; }
+
+        .blink { animation: blinker 1s linear infinite; }
+        @keyframes blinker { 50% { opacity: 0; } }
+
+        #arcade-footer {
+            position: absolute; bottom: 20px; width: 100%; text-align: center;
+            font-size: 10px; color: var(--metal-border); text-transform: uppercase;
+            letter-spacing: 3px;
+        }
+    </style>
+</head>
+<body>
+    <div class="scanline"></div>
+    
+    <div id="hud-container">
+        <div class="hud-top">
+            <div class="hud-panel stat-group">
+                <div class="label"><span>PILOT: ICE</span><span>SHIELDS</span></div>
+                <div class="health-grid" id="health-bar"></div>
+                <div id="weapon-badge" style="font-size: 10px; color: var(--warning-amber);">MUNITIONS: ALPHA</div>
+            </div>
+            <div class="hud-panel stat-group" style="text-align: right;">
+                <div class="label"><span>DATA CORE</span><span>SCORE</span></div>
+                <div id="score" class="value">000000</div>
+            </div>
+        </div>
+
+        <div id="boss-ui">
+            <div class="label" style="color: var(--lcd-red); border-bottom: 1px solid var(--lcd-red);">
+                <span>TARGET: ADMIRAL JOHNNY</span><span>INTEGRITY</span>
+            </div>
+            <div class="boss-bar-container"><div id="boss-fill"></div></div>
+        </div>
+
+        <div id="dialogue-container">
+            <div id="portrait"><canvas id="portrait-canvas" width="60" height="60"></canvas></div>
+            <div>
+                <div id="speaker-name" style="font-size: 10px; color: var(--warning-amber); margin-bottom: 4px;">PRIORITY MSG</div>
+                <p id="message-text">...</p>
+            </div>
+        </div>
+
+        <div id="active-effects"></div>
+
+        <div class="hud-bottom">
+            <div class="hud-panel orbital-container">
+                <div class="label"><span>ORBITAL MOTHERSHIP</span><span>LOCK: <span id="orbital-percent">0</span>%</span></div>
+                <div class="progress-bar"><div id="orbital-fill"></div></div>
+                <div id="special-hint" style="font-size: 9px; margin-top: 4px; opacity: 0.6;">AWAITING FIRE CONTROL... [X]</div>
+            </div>
+            <div class="hud-panel" style="min-width: 80px; text-align: center;">
+                <div class="label"><span>SECTOR</span></div>
+                <div id="level" class="value" style="font-size: 32px;">01</div>
+            </div>
+        </div>
+    </div>
+
+    <div id="overlay">
+        <div class="modal">
+            <h1 id="overlay-title">SPACE ATTACK</h1>
+            <p id="overlay-desc">NEUTRALIZE THE ADMIRAL. PROTECT THE CORE.</p>
+            
+            <div class="high-score-box">
+                <div class="label" style="justify-content: center; margin-bottom: 5px;">— HIGH SCORE —</div>
+                <div id="high-score" class="value" style="color: var(--arcade-pink); text-shadow: 0 0 10px var(--arcade-pink);">025000</div>
+            </div>
+
+            <div class="btn-container">
+                <button id="start-btn" class="btn blink">PUSH START BUTTON</button>
+                <button id="resume-btn" class="btn" style="display: none;">RESUME MISSION</button>
+                <button id="menu-btn" class="btn secondary" style="display: none;">RETURN TO COMMAND</button>
+            </div>
+
+            <div id="arcade-footer">© 1984 GEMINI SYSTEMS - INSERT COIN</div>
+        </div>
+    </div>
+
+    <script>
+        const state = {
+            playing: false,
+            paused: false,
+            score: 0,
+            highScore: 25000,
+            level: 1,
+            weaponLevel: 0,
+            bulletDmg: 1,
+            lastFire: 0,
+            fireRate: 250,
+            keys: {},
+            enemies: [],
+            asteroids: [],
+            bullets: [],
+            upgrades: [],
+            particles: [],
+            playerShield: 5,
+            isInvulnerable: false,
+            orbitalCharge: 0,
+            isBossLevel: false,
+            boss: null,
+            uavs: [],
+            activeEffects: {},
+            dialogueQueue: [],
+            isTalking: false
+        };
+
+        const DROPS = {
+            HP_UP: { color: 0x33ff33, msg: "ICE: Systems stabilized. Repair complete." },
+            DMG_UP: { color: 0xff00ff, msg: "ICE: Overclocking weapon cores." },
+            SHIELD: { color: 0x00ffff, msg: "ICE: Kinetic shield active." },
+            RAPID: { color: 0xffff33, msg: "ICE: Fire rate limits removed." },
+            MISSILE: { color: 0xffaa00, msg: "ICE: Swapping to seeking munitions." },
+            DRONE: { color: 0x888888, msg: "ICE: Support wing in position." },
+            EMP: { color: 0x4444ff, msg: "ICE: Releasing electronic pulse." },
+            MOTHERSHIP: { color: 0xff4444, msg: "ICE: Mothership on station!" }
+        };
+
+        const WEAPON_TYPES = [
+            { name: "ALPHA", color: 0x33ff33, count: 1 },
+            { name: "BETA", color: 0x33ffff, count: 2 },
+            { name: "GAMMA", color: 0xffaa00, count: 3 },
+            { name: "OMEGA", color: 0xff4444, count: 4 }
+        ];
+
+        let scene, camera, renderer, player, stars, thrusterLight, playerModelContainer;
+        const VIEW_WIDTH = 45;
+
+        function triggerDialogue(speaker, message) {
+            state.dialogueQueue.push({ speaker, message });
+            if (!state.isTalking) processNextDialogue();
+        }
+
+        function processNextDialogue() {
+            const container = document.getElementById('dialogue-container');
+            if (state.dialogueQueue.length === 0) {
+                if (container) container.style.display = 'none';
+                state.isTalking = false;
+                return;
+            }
+            state.isTalking = true;
+            const entry = state.dialogueQueue.shift();
+            const speakerEl = document.getElementById('speaker-name');
+            const messageEl = document.getElementById('message-text');
+            if (container) container.style.display = 'flex';
+            if (speakerEl) {
+                speakerEl.innerText = entry.speaker;
+                speakerEl.style.color = entry.speaker.includes('JOHNNY') ? 'var(--lcd-red)' : 'var(--lcd-green)';
+            }
+            if (messageEl) messageEl.innerText = "";
+            drawPortrait(entry.speaker);
+            let i = 0;
+            const typeTimer = setInterval(() => {
+                if (messageEl) messageEl.innerText += entry.message[i];
+                i++;
+                if (i >= entry.message.length) {
+                    clearInterval(typeTimer);
+                    setTimeout(processNextDialogue, 3500);
+                }
+            }, 25);
+        }
+
+        function drawPortrait(speaker) {
+            const canvas = document.getElementById('portrait-canvas');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, 60, 60);
+            ctx.strokeStyle = speaker.includes('JOHNNY') ? '#ff4444' : '#33ff33';
+            ctx.lineWidth = 2;
+            if (speaker.includes('JOHNNY')) {
+                ctx.beginPath(); ctx.moveTo(15, 15); ctx.lineTo(45, 15); ctx.lineTo(45, 30); ctx.lineTo(30, 45); ctx.lineTo(15, 30); ctx.closePath(); ctx.stroke();
+                ctx.fillStyle = '#ff4444'; ctx.fillRect(25, 25, 10, 3);
+            } else {
+                ctx.beginPath(); ctx.arc(30, 30, 18, 0, Math.PI * 2); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(20, 30); ctx.lineTo(40, 30); ctx.stroke();
+            }
+        }
+
+        function init() {
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            document.body.appendChild(renderer.domElement);
+            scene.add(new THREE.AmbientLight(0xffffff, 0.4));
+            const sun = new THREE.DirectionalLight(0xffffff, 1.2); sun.position.set(20, 50, 10); scene.add(sun);
+            createStars();
+            camera.position.set(0, -40, 35);
+            camera.lookAt(0, 5, 0);
+
+            window.addEventListener('keydown', e => {
+                state.keys[e.code] = true;
+                if (e.code === 'KeyX' && state.orbitalCharge >= 100) triggerOrbitalStrike();
+                if (e.code === 'Escape') togglePause();
+            });
+            window.addEventListener('keyup', e => state.keys[e.code] = false);
+            window.addEventListener('resize', onWindowResize);
+            
+            document.getElementById('start-btn').onclick = startGame;
+            document.getElementById('resume-btn').onclick = togglePause;
+            document.getElementById('menu-btn').onclick = returnToMenu;
+
+            updateUI();
+            animate();
+        }
+
+        function createStars() {
+            const geo = new THREE.BufferGeometry();
+            const vertices = [];
+            for (let i = 0; i < 3000; i++) { vertices.push(THREE.MathUtils.randFloatSpread(400), THREE.MathUtils.randFloatSpread(400), THREE.MathUtils.randFloatSpread(400)); }
+            geo.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+            stars = new THREE.Points(geo, new THREE.PointsMaterial({ size: 0.15, color: 0x888888 }));
+            scene.add(stars);
+        }
+
+        function triggerOrbitalStrike() {
+            state.orbitalCharge = 0; updateUI();
+            triggerDialogue("ICE", "Command, initiate sector sweep. Burn them all!");
+            const beam = new THREE.Mesh(new THREE.CylinderGeometry(15, 15, 120, 32), new THREE.MeshBasicMaterial({ color: 0xffaa00, transparent: true, opacity: 0.8 }));
+            beam.rotation.x = Math.PI/2; beam.position.set(player.position.x, 0, 0); scene.add(beam);
+            for(let i=0; i<5; i++) { setTimeout(() => spawnExplosion({x: player.position.x + (Math.random()-0.5)*15, y: (Math.random()-0.5)*40, z:0}, 0xffaa00), i*100); }
+            setTimeout(() => {
+                state.enemies.forEach(e => { if (Math.abs(e.position.x - player.position.x) < 18) e.userData.hp -= 100; });
+                state.asteroids.forEach(a => { if (Math.abs(a.position.x - player.position.x) < 18) a.position.y = -100; });
+                let op = 0.8; const f = setInterval(() => { op -= 0.05; beam.material.opacity = op; if (op <= 0) { clearInterval(f); scene.remove(beam); } }, 30);
+            }, 200);
+        }
+
+        function createPlayer() {
+            if (player) scene.remove(player);
+            player = new THREE.Group(); playerModelContainer = new THREE.Group();
+            const hullMat = new THREE.MeshPhongMaterial({ color: 0xcccccc, specular: 0x444444, shininess: 30 });
+            playerModelContainer.add(new THREE.Mesh(new THREE.BoxGeometry(1.2, 3.5, 0.8), hullMat));
+            const wingSet = (angle) => { const w = new THREE.Mesh(new THREE.BoxGeometry(4.5 + state.weaponLevel, 0.4, 0.1), hullMat); w.rotation.z = angle; return w; };
+            playerModelContainer.add(wingSet(0.1), wingSet(-0.1));
+            const cockpit = new THREE.Mesh(new THREE.SphereGeometry(0.5, 8, 8), new THREE.MeshPhongMaterial({color: 0x222222}));
+            cockpit.position.set(0, 0.5, 0.4); playerModelContainer.add(cockpit);
+            const thruster = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.1, 1, 8), new THREE.MeshBasicMaterial({ color: 0x00ccff }));
+            thruster.rotation.x = Math.PI; thruster.position.y = -2; thruster.name = "thruster";
+            playerModelContainer.add(thruster);
+            thrusterLight = new THREE.PointLight(0x00ccff, 1.5, 12); thrusterLight.position.set(0, -2.5, 0.5);
+            playerModelContainer.add(thrusterLight);
+            player.add(playerModelContainer); player.position.y = -20; scene.add(player);
+            updateUAVs();
+        }
+
+        function updateUAVs() {
+            state.uavs.forEach(u => scene.remove(u)); state.uavs = [];
+            const count = state.activeEffects['DRONES'] ? 4 : (state.weaponLevel >= 2 ? 2 : 0);
+            for (let i = 0; i < count; i++) {
+                const uav = new THREE.Mesh(new THREE.ConeGeometry(0.4, 1, 4), new THREE.MeshPhongMaterial({ color: 0xaaaaaa }));
+                uav.rotation.x = Math.PI; uav.userData = { angle: (i / count) * Math.PI * 2, radius: 4.5 };
+                scene.add(uav); state.uavs.push(uav);
+            }
+        }
+
+        function createEnemyMesh(type) {
+            const group = new THREE.Group();
+            const panelMat = new THREE.MeshPhongMaterial({ color: 0x222222, flatShading: true });
+            const hullMat = new THREE.MeshPhongMaterial({ color: 0x999999, flatShading: true });
+            let hp, speed, color;
+            switch(type) {
+                case "SCOUT": 
+                    group.add(new THREE.Mesh(new THREE.SphereGeometry(0.8, 8, 8), hullMat));
+                    const w1 = new THREE.Mesh(new THREE.BoxGeometry(0.1, 2.5, 2.5), panelMat); w1.position.x = 1.2;
+                    const w2 = new THREE.Mesh(new THREE.BoxGeometry(0.1, 2.5, 2.5), panelMat); w2.position.x = -1.2;
+                    group.add(w1, w2); hp = 2; speed = 0.15; color = 0x4488ff; break;
+                case "DRONE": group.add(new THREE.Mesh(new THREE.BoxGeometry(1, 2, 0.8), hullMat)); hp = 5; speed = 0.12; color = 0x8844ff; break;
+                case "MISSILE": 
+                    const c = new THREE.Mesh(new THREE.ConeGeometry(0.6, 2.5, 4), hullMat); c.rotation.x = Math.PI;
+                    group.add(c); hp = 1; speed = 0.4; color = 0xffaa00; break;
+                case "BOSS": 
+                    const wedge = new THREE.Mesh(new THREE.ConeGeometry(10, 22, 4), hullMat); wedge.rotation.x = Math.PI; wedge.scale.z = 0.2;
+                    group.add(wedge); hp = 100 + (state.level * 20); speed = 0.05; color = 0xff0000; break;
+            }
+            group.userData = { type, hp, maxHp: hp, speed, color }; return group;
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            if (!state.playing || state.paused) { if (stars) stars.position.y -= 0.02; renderer.render(scene, camera); return; }
+            const s = 0.45;
+            if (state.keys['KeyA'] || state.keys['ArrowLeft']) player.position.x -= s;
+            if (state.keys['KeyD'] || state.keys['ArrowRight']) player.position.x += s;
+            if (state.keys['KeyW'] || state.keys['ArrowUp']) player.position.y += s;
+            if (state.keys['KeyS'] || state.keys['ArrowDown']) player.position.y -= s;
+            if (state.keys['Space']) fireBullet();
+            player.position.x = Math.max(-VIEW_WIDTH/2, Math.min(VIEW_WIDTH/2, player.position.x));
+            player.position.y = Math.max(-30, Math.min(25, player.position.y));
+            if (state.isInvulnerable) playerModelContainer.children[0].material.emissive.setHex(0x00ffff);
+            else playerModelContainer.children[0].material.emissive.setHex(0x000000);
+            const th = player.getObjectByName("thruster"); if (th) th.scale.y = 0.8 + Math.random() * 0.4;
+            state.uavs.forEach(u => { u.userData.angle += 0.04; u.position.x = player.position.x + Math.cos(u.userData.angle) * u.userData.radius; u.position.y = player.position.y + Math.sin(u.userData.angle) * u.userData.radius; if (Math.random() < 0.03) fireBullet(u.position); });
+            if (Math.random() < 0.02 + (state.level * 0.005)) spawnEnemy();
+            if (Math.random() < 0.015) spawnAsteroid();
+            if (state.level % 5 === 0 && !state.isBossLevel) spawnBoss();
+            state.asteroids.forEach((a, i) => { a.position.y -= a.userData.speed; a.rotation.x += a.userData.rot.x; if (a.position.distanceTo(player.position) < 3) { takeDamage(1); scene.remove(a); state.asteroids.splice(i, 1); } else if (a.position.y < -55) { scene.remove(a); state.asteroids.splice(i, 1); } });
+            state.bullets.forEach((b, i) => { b.position.y += b.userData.speed || 1.4; if (b.userData.isMissile) { let target = null; let md = 40; state.enemies.forEach(e => { let d = e.position.distanceTo(b.position); if (d < md) { md = d; target = e; } }); if (target) b.position.x += (target.position.x - b.position.x) * 0.06; } if (b.position.y > 60 || b.position.y < -60) { scene.remove(b); state.bullets.splice(i, 1); } });
+            state.enemies.forEach((e, i) => {
+                if (e.userData.type === 'BOSS') { e.position.y = THREE.MathUtils.lerp(e.position.y, 18, 0.01); e.position.x = Math.sin(Date.now() * 0.001) * 20; if (Math.random() < 0.08) spawnEnemyBullet(e.position); const bFill = document.getElementById('boss-fill'); if (bFill) bFill.style.width = (e.userData.hp / e.userData.maxHp * 100) + '%'; }
+                else { e.position.y -= e.userData.speed; if (Math.random() < 0.01) spawnEnemyBullet(e.position); }
+                if (e.position.distanceTo(player.position) < 3.5) { takeDamage(1); destroyEnemy(e, i); return; }
+                state.bullets.forEach((b, j) => { if (b.userData.fromPlayer && b.position.distanceTo(e.position) < 3.5) { e.userData.hp -= b.userData.dmg || state.bulletDmg; scene.remove(b); state.bullets.splice(j, 1); if (e.userData.hp <= 0) { if (e.userData.type === 'BOSS') { triggerDialogue("ADMIRAL JOHNNY", "IMPOSSIBLE! My fleet... neutralized!"); state.isBossLevel = false; state.level++; state.score += 10000; const bUi = document.getElementById('boss-ui'); if (bUi) bUi.style.display = 'none'; spawnItem(e.position); } destroyEnemy(e, i); } } });
+                if (e.position.y < -55) { scene.remove(e); state.enemies.splice(i, 1); }
+            });
+            state.upgrades.forEach((u, i) => { u.position.y -= 0.12; u.rotation.y += 0.05; if (u.position.distanceTo(player.position) < 2.5) { applyEffect(u.userData.dropType); scene.remove(u); state.upgrades.splice(i, 1); } else if (u.position.y < -55) { scene.remove(u); state.upgrades.splice(i, 1); } });
+            state.particles.forEach((p, i) => { p.position.add(p.userData.vel); p.userData.life -= 0.03; if (p.userData.life <= 0) { scene.remove(p); state.particles.splice(i, 1); } });
+            if (stars) { stars.position.y -= 0.15; if (stars.position.y < -150) stars.position.y = 0; }
+            renderer.render(scene, camera);
+        }
+
+        function spawnEnemy() { if (state.isBossLevel && state.enemies.length > 5) return; const r = Math.random(); let type = "SCOUT"; if (r < 0.1 && state.level > 2) type = "MISSILE"; else if (r < 0.2 && state.level > 3) type = "DRONE"; const mesh = createEnemyMesh(type); mesh.position.set(THREE.MathUtils.randFloatSpread(VIEW_WIDTH), 50, 0); scene.add(mesh); state.enemies.push(mesh); }
+        function spawnBoss() { state.isBossLevel = true; document.getElementById('boss-ui').style.display = 'block'; triggerDialogue("ADMIRAL JOHNNY", "So, the legendary ICE is here."); const mesh = createEnemyMesh('BOSS'); mesh.position.set(0, 60, 0); scene.add(mesh); state.boss = mesh; state.enemies.push(mesh); }
+        function spawnAsteroid() { const size = Math.random() * 2 + 1; const mesh = new THREE.Mesh(new THREE.IcosahedronGeometry(size, 0), new THREE.MeshPhongMaterial({ color: 0x444444, flatShading: true })); mesh.position.set(THREE.MathUtils.randFloatSpread(VIEW_WIDTH + 10), 55, 0); mesh.userData = { hp: size * 3, speed: 0.1 + Math.random() * 0.1, rot: new THREE.Vector3(Math.random()*0.02, Math.random()*0.02, Math.random()*0.02) }; scene.add(mesh); state.asteroids.push(mesh); }
+        function spawnItem(pos) { const keys = Object.keys(DROPS); const typeKey = keys[Math.floor(Math.random() * keys.length)]; const data = DROPS[typeKey]; const group = new THREE.Group(); group.add(new THREE.Mesh(new THREE.OctahedronGeometry(1.2), new THREE.MeshPhongMaterial({ color: data.color, emissive: data.color, emissiveIntensity: 0.5 }))); group.position.copy(pos); group.userData = { dropType: typeKey, color: data.color }; scene.add(group); state.upgrades.push(group); }
+        function applyEffect(type) { const data = DROPS[type]; const duration = 12000; triggerDialogue("ICE", data.msg); switch(type) { case 'HP_UP': state.playerShield = Math.min(5, state.playerShield + 1); break; case 'DMG_UP': state.bulletDmg += 2; addTemporalEffect('DMG++', duration, () => state.bulletDmg -= 2); break; case 'SHIELD': state.isInvulnerable = true; addTemporalEffect('SHIELD', duration, () => state.isInvulnerable = false); break; case 'RAPID': state.fireRate = 120; addTemporalEffect('RAPID', duration, () => state.fireRate = 250); break; case 'DRONE': state.activeEffects['DRONES'] = true; updateUAVs(); addTemporalEffect('DRONES', duration, () => { state.activeEffects['DRONES'] = false; updateUAVs(); }); break; case 'EMP': triggerEMP(); break; case 'MOTHERSHIP': state.orbitalCharge = 100; break; } state.score += 500; updateUI(); }
+        function addTemporalEffect(label, ms, cleanup) { if (state.activeEffects[label]) clearTimeout(state.activeEffects[label].timer); const timer = setTimeout(() => { if (cleanup) cleanup(); delete state.activeEffects[label]; renderEffectsUI(); }, ms); state.activeEffects[label] = { label, timer }; renderEffectsUI(); }
+        function renderEffectsUI() { const container = document.getElementById('active-effects'); if (!container) return; container.innerHTML = ''; Object.keys(state.activeEffects).forEach(label => { const tag = document.createElement('div'); tag.className = 'effect-tag'; tag.innerText = label; container.appendChild(tag); }); }
+        function triggerEMP() { const ring = new THREE.Mesh(new THREE.TorusGeometry(1, 0.2, 16, 100), new THREE.MeshBasicMaterial({ color: 0x4444ff })); ring.rotation.x = Math.PI/2; ring.position.copy(player.position); scene.add(ring); let sc = 1; const exp = setInterval(() => { sc += 2.5; ring.scale.set(sc, sc, sc); state.enemies.forEach(e => { if (e.position.distanceTo(player.position) < sc) { e.userData.hp -= 2; spawnExplosion(e.position, 0x4444ff); } }); if (sc > 45) { clearInterval(exp); scene.remove(ring); } }, 20); }
+        function destroyEnemy(e, index) { spawnExplosion(e.position, e.userData.color); state.score += 250; state.orbitalCharge = Math.min(100, state.orbitalCharge + 4); if (Math.random() < 0.18) spawnItem(e.position); if (!state.isBossLevel) { const nl = Math.floor(state.score / 6000) + 1; if (nl > state.level) { state.level = nl; state.weaponLevel = Math.min(3, state.weaponLevel + 1); createPlayer(); triggerDialogue("ICE", "Command, Sector cleared."); } } scene.remove(e); state.enemies.splice(index, 1); updateUI(); }
+        function takeDamage(amt) { if (state.isInvulnerable) return; state.playerShield -= amt; updateUI(); if (state.playerShield <= 0) { state.playing = false; triggerDialogue("ADMIRAL JOHNNY", "Target neutralized."); if (state.score > state.highScore) state.highScore = state.score; setTimeout(() => showOverlay("MISSION FAILED", "GAME OVER<br>PILOT EJECTED", 'gameover'), 1500); } else { triggerDialogue("ICE", "Hull integrity holding."); } }
+        function spawnExplosion(pos, color) { for (let i = 0; i < 15; i++) { const p = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.6, 0.6), new THREE.MeshBasicMaterial({ color })); p.position.set(pos.x, pos.y, pos.z || 0); p.userData = { vel: new THREE.Vector3((Math.random()-0.5), (Math.random()-0.5), (Math.random()-0.5)), life: 1 }; scene.add(p); state.particles.push(p); } }
+        function fireBullet(customPos) { const now = Date.now(); if (!customPos && now - state.lastFire < state.fireRate) return; if (!customPos) state.lastFire = now; const w = WEAPON_TYPES[Math.min(state.weaponLevel, 3)]; const isMissile = state.activeEffects['MISSILES'] && !customPos; const count = customPos ? 1 : w.count; for (let i = 0; i < count; i++) { const b = new THREE.Mesh(isMissile ? new THREE.ConeGeometry(0.3, 1.2, 4) : new THREE.BoxGeometry(0.2, 1.5, 0.2), new THREE.MeshBasicMaterial({ color: isMissile ? 0xffaa00 : w.color })); b.position.copy(customPos || player.position); if (!customPos) b.position.x += (i - (w.count-1)/2) * 1.2; b.userData = { fromPlayer: true, dmg: isMissile ? state.bulletDmg * 3 : state.bulletDmg, isMissile, speed: isMissile ? 0.9 : 1.4 }; if (isMissile) b.rotation.x = Math.PI/2; scene.add(b); state.bullets.push(b); } }
+        function spawnEnemyBullet(pos) { const b = new THREE.Mesh(new THREE.SphereGeometry(0.3, 4, 4), new THREE.MeshBasicMaterial({ color: 0xff0000 })); b.position.copy(pos); b.userData = { fromPlayer: false, speed: -0.6 }; scene.add(b); state.bullets.push(b); }
+
+        function updateUI() {
+            const sc = document.getElementById('score'), lv = document.getElementById('level'), of = document.getElementById('orbital-fill'), op = document.getElementById('orbital-percent'), sh = document.getElementById('special-hint'), wb = document.getElementById('weapon-badge'), hs = document.getElementById('high-score');
+            if (sc) sc.innerText = state.score.toString().padStart(6, '0'); if (lv) lv.innerText = state.level.toString().padStart(2, '0'); if (of) of.style.width = state.orbitalCharge + '%'; if (op) op.innerText = Math.floor(state.orbitalCharge); if (sh) sh.innerText = state.orbitalCharge >= 100 ? "SIGNAL LOCKED [X]" : "AWAITING FIRE CONTROL... [X]"; if (wb) wb.innerText = `MUNITIONS: ${WEAPON_TYPES[Math.min(state.weaponLevel, 3)].name}`; if (hs) hs.innerText = state.highScore.toString().padStart(6, '0');
+            const hb = document.getElementById('health-bar'); if (hb) { hb.innerHTML = ''; for(let i=0; i<5; i++) { const p = document.createElement('div'); p.className = `health-cell ${i < state.playerShield ? 'active' : ''}`; hb.appendChild(p); } }
+        }
+
+        function showOverlay(t, d, mode = 'default') {
+            const ov = document.getElementById('overlay'), ot = document.getElementById('overlay-title'), od = document.getElementById('overlay-desc'), sb = document.getElementById('start-btn'), rb = document.getElementById('resume-btn'), mb = document.getElementById('menu-btn');
+            if (ot) ot.innerText = t; if (od) od.innerHTML = d; if (ov) ov.style.display = 'flex';
+            
+            sb.classList.remove('blink');
+            if (mode === 'pause') { sb.style.display = 'none'; rb.style.display = 'block'; mb.style.display = 'block'; }
+            else if (mode === 'gameover') { sb.style.display = 'block'; rb.style.display = 'none'; mb.style.display = 'none'; sb.innerText = "TRY AGAIN"; sb.classList.add('blink'); }
+            else { sb.style.display = 'block'; rb.style.display = 'none'; mb.style.display = 'none'; sb.innerText = "PUSH START BUTTON"; sb.classList.add('blink'); }
+        }
+
+        function startGame() {
+            state.playing = true; state.paused = false; state.score = 0; state.level = 1; state.playerShield = 5; state.weaponLevel = 0; state.bulletDmg = 1; state.fireRate = 250; state.orbitalCharge = 0; state.isBossLevel = false; state.activeEffects = {};
+            [state.enemies, state.bullets, state.upgrades, state.asteroids, state.particles].forEach(arr => { arr.forEach(obj => scene.remove(obj)); arr.length = 0; });
+            document.getElementById('overlay').style.display = 'none'; document.getElementById('boss-ui').style.display = 'none';
+            renderEffectsUI(); createPlayer(); updateUI();
+            triggerDialogue("ICE", "ICE reporting in. Moving in.");
+        }
+
+        function returnToMenu() {
+            state.playing = false; state.paused = false;
+            [state.enemies, state.bullets, state.upgrades, state.asteroids, state.particles].forEach(arr => { arr.forEach(obj => scene.remove(obj)); arr.length = 0; });
+            if (player) scene.remove(player);
+            showOverlay("SPACE ATTACK", "NEUTRALIZE THE ADMIRAL. PROTECT THE CORE.");
+        }
+
+        function togglePause() {
+            if (!state.playing) return;
+            state.paused = !state.paused;
+            if (state.paused) showOverlay("SYSTEM STANDBY", "TACTICAL OVERLAY PAUSED.<br>AWAITING PILOT RESPONSE.", 'pause');
+            else document.getElementById('overlay').style.display = 'none';
+        }
+
+        function onWindowResize() { camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight); }
+        window.onload = init;
+    </script>
+</body>
+</html>
