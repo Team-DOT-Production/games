@@ -79,7 +79,7 @@
             text-shadow: 0 0 10px rgba(0, 242, 255, 0.5);
         }
 
-        #pause-btn {
+        .control-btn {
             background: rgba(0, 242, 255, 0.1);
             border: 1px solid #00f2ff;
             color: #00f2ff;
@@ -90,34 +90,55 @@
             transition: 0.3s;
             font-size: 0.8rem;
             font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
         }
-        #pause-btn:hover { background: #00f2ff; color: #000; }
+        .control-btn:hover { background: #00f2ff; color: #000; }
 
         /* Keyboard */
         #mobile-keyboard {
-            display: none;
-            grid-template-columns: repeat(10, 1fr);
-            gap: 6px;
+            display: none; /* Hidden by default, toggled via JS */
+            flex-direction: column;
+            gap: 5px;
             padding: 15px;
             background: #0a0a0f;
             border-top: 1px solid rgba(0, 242, 255, 0.2);
+            user-select: none;
+        }
+        
+        #mobile-keyboard.active {
+            display: flex;
         }
 
-        @media (max-width: 768px) {
-            #mobile-keyboard { display: grid; }
-            #game-container { height: 100vh; border-radius: 0; border: none; }
+        .kb-row {
+            display: flex;
+            justify-content: center;
+            gap: 5px;
+            width: 100%;
         }
 
         .key {
             background: linear-gradient(145deg, #151525, #0a0a15);
             border: 1px solid rgba(0, 242, 255, 0.3);
             color: #00f2ff;
-            padding: 14px 0;
-            text-align: center;
+            flex: 1;
+            max-width: 60px;
+            height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
             border-radius: 6px;
             font-weight: bold;
             font-family: 'JetBrains Mono', monospace;
             cursor: pointer;
+            transition: transform 0.1s, background 0.1s;
+        }
+        .key:active {
+            transform: scale(0.9);
+            background: #00f2ff;
+            color: #000;
         }
 
         /* Screens */
@@ -189,7 +210,15 @@
                 <div class="label" style="color: #fbbf24;">Sector</div>
                 <div id="level-val" class="value" style="color: #fbbf24;">1</div>
             </div>
-            <button id="pause-btn" onclick="togglePause()">PAUSE</button>
+            <div class="flex gap-2">
+                <button id="kb-toggle-btn" class="control-btn" onclick="toggleKeyboard()">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                        <path d="M0 5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V5zm13.5 1a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1zM11 6a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1zM8.5 6a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1zM6 6a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1zM3.5 6a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1zM2 9a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1zM4.5 9a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1zM7 9a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1zM9.5 9a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1zM12 9a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1zM2 11a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1zM5 11a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1zM8 11a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1zM11 11a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1zM14 11a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1z"/>
+                    </svg>
+                    KEYS
+                </button>
+                <button id="pause-btn" class="control-btn" onclick="togglePause()">PAUSE</button>
+            </div>
         </div>
         <div class="glass-panel text-right" style="border-color: rgba(239, 68, 68, 0.4);">
             <div class="label" style="color: #ef4444;">Shields</div>
@@ -199,6 +228,7 @@
 
     <canvas id="gameCanvas"></canvas>
 
+    <!-- Visual Keyboard Container -->
     <div id="mobile-keyboard"></div>
 
     <!-- Start Screen -->
@@ -249,6 +279,7 @@
     const scoreEl = document.getElementById('score-val');
     const levelEl = document.getElementById('level-val');
     const lifeEl = document.getElementById('life-val');
+    const kbContainer = document.getElementById('mobile-keyboard');
     
     const startScreen = document.getElementById('start-screen');
     const pauseScreen = document.getElementById('pause-screen');
@@ -285,7 +316,6 @@
     let spawnTimer = 0, enemiesDestroyedInLevel = 0, bossSpawned = false;
     let muzzleFlash = 0;
     
-    // Difficulty Settings
     let currentDifficulty = 'medium';
     const difficultyConfigs = {
         easy: { speedMultiplier: 1.0, spawnRate: 200, bonus: 1 },
@@ -298,6 +328,12 @@
         document.querySelectorAll('.difficulty-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         playSound(300, 'sine', 0.1, 0.1);
+    }
+
+    function toggleKeyboard() {
+        kbContainer.classList.toggle('active');
+        resize(); // Recalculate canvas size
+        playSound(400, 'sine', 0.05, 0.1);
     }
 
     const enemiesToClearLevel = 8; 
@@ -315,7 +351,6 @@
                 let maxLength = 3 + Math.floor(level / 2);
                 let filtered = WORDS.filter(w => w.length >= 3 && w.length <= maxLength);
                 this.word = filtered[Math.floor(Math.random() * filtered.length)];
-                // Mod Hard: speedMultiplier memecutkan musuh dengan ketara
                 this.speed = (0.35 + (level * 0.05)) * config.speedMultiplier; 
                 this.size = 1;
                 this.color = `hsl(${(level * 40) % 360}, 100%, 70%)`;
@@ -461,7 +496,6 @@
         const key = char.toUpperCase();
 
         if (!currentTarget) {
-            // Utamakan musuh yang paling bawah (paling bahaya)
             const sortedEnemies = [...enemies].sort((a,b) => b.y - a.y);
             currentTarget = sortedEnemies.find(e => e.word[0] === key && e.y > 0);
         }
@@ -534,7 +568,6 @@
 
         const config = difficultyConfigs[currentDifficulty];
         spawnTimer++;
-        // Mod Hard: Spawn rate lebih rendah bermaksud musuh muncul lebih kerap
         if (spawnTimer > config.spawnRate && enemiesDestroyedInLevel < enemiesToClearLevel && enemies.length < (2 + Math.floor(level/3))) {
             enemies.push(new Enemy());
             spawnTimer = 0;
@@ -543,7 +576,6 @@
         ctx.fillStyle = '#050508';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        // Stars animation
         ctx.fillStyle = 'rgba(255,255,255,0.15)';
         for(let i=0; i<60; i++) {
             let y = (Date.now()*0.03 + i*100) % canvas.height;
@@ -589,14 +621,37 @@
         canvas.height = canvas.offsetHeight;
     }
 
-    const layout = "QWERTYUIOPASDFGHJKLZXCVBNM".split("");
-    layout.forEach(k => {
-        const d = document.createElement('div');
-        d.className = 'key'; d.textContent = k;
-        d.onmousedown = (e) => { e.preventDefault(); handleInput(k); };
-        d.ontouchstart = (e) => { e.preventDefault(); handleInput(k); };
-        document.getElementById('mobile-keyboard').appendChild(d);
+    // Modern QWERTY Layout Construction
+    const rows = [
+        "QWERTYUIOP",
+        "ASDFGHJKL",
+        "ZXCVBNM"
+    ];
+
+    rows.forEach(rowStr => {
+        const rowDiv = document.createElement('div');
+        rowDiv.className = 'kb-row';
+        rowStr.split("").forEach(char => {
+            const keyBtn = document.createElement('div');
+            keyBtn.className = 'key';
+            keyBtn.textContent = char;
+            
+            const triggerInput = (e) => {
+                e.preventDefault();
+                handleInput(char);
+            };
+
+            keyBtn.addEventListener('mousedown', triggerInput);
+            keyBtn.addEventListener('touchstart', triggerInput);
+            rowDiv.appendChild(keyBtn);
+        });
+        kbContainer.appendChild(rowDiv);
     });
+
+    // Device Detection (Simple)
+    if (window.matchMedia("(max-width: 768px)").matches) {
+        kbContainer.classList.add('active');
+    }
 
     window.addEventListener('keydown', e => {
         if (e.key === 'Escape' || e.key === ' ') {
@@ -609,12 +664,13 @@
             } else if (isGameOver) {
                 location.reload();
             }
-        } else {
+        } else if (e.key.length === 1) {
             handleInput(e.key);
         }
     });
+    
     window.addEventListener('resize', resize);
-    resize();
+    window.onload = resize;
 </script>
 </body>
 </html>
