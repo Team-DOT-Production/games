@@ -122,6 +122,31 @@
         .modal-content { background: #1a1a1a; border: 2px solid var(--retro-blue); padding: 30px; width: 80%; max-width: 350px; text-align: center; border-radius: 12px; box-shadow: 0 0 30px rgba(0, 212, 255, 0.2); animation: modalPop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
         .hidden { display: none !important; }
 
+        .btn-fullscreen {
+        background: var(--retro-blue); 
+        color: #000; 
+        border: none; 
+        padding: 10px 15px;
+        font-family: inherit; 
+        font-size: 10px; 
+        cursor: pointer; 
+        border-radius: 6px; 
+        box-shadow: 0 4px 0 #0088cc;
+        }
+        .btn-fullscreen:active { 
+            transform: translateY(4px); 
+            box-shadow: 0 0 0 #0088cc; 
+        }
+
+        /* Sedikit kemaskini supaya popup nampak penuh skrin bila dalam mode Full Screen */
+        :fullscreen .game-popup-content {
+            width: 100%;
+            max-width: 100%;
+            height: 100vh;
+            border-radius: 0;
+            border: none;
+        }
+
         #banner { 
         position: fixed; 
         top: 50%; /* Letak di tengah secara menegak */
@@ -207,9 +232,12 @@
     <div id="game-popup" class="game-popup">
         <div class="game-popup-content">
             <div class="game-header">
-                <span class="game-title" id="active-game-title">KADET BLAST</span>
-                <button class="btn-exit" onclick="closeGamePopup()">[X] EXIT GAME</button>
-            </div>
+            <span class="game-title" id="active-game-title">KADET BLAST</span>
+            <div style="display: flex; gap: 10px;">
+            <button class="btn-fullscreen" onclick="toggleFullScreen()">[ ] FULL SCREEN</button>
+        <button class="btn-exit" onclick="closeGamePopup()">[X] EXIT GAME</button>
+        </div>
+    </div>
             <iframe id="game-frame" src=""></iframe>
         </div>
     </div>
@@ -328,6 +356,36 @@
             document.getElementById('game-popup').classList.add('active'); // Pop out animasi
         }
 
+        function toggleFullScreen() {
+        const gameContent = document.querySelector('.game-popup-content');
+            
+        if (!document.fullscreenElement) {
+            // Masuk Full Screen
+            if (gameContent.requestFullscreen) {
+                gameContent.requestFullscreen();
+            } else if (gameContent.webkitRequestFullscreen) { /* Safari */
+                gameContent.webkitRequestFullscreen();
+            } else if (gameContent.msRequestFullscreen) { /* IE11 */
+                gameContent.msRequestFullscreen();
+            }
+            playSound(300, 0.1);
+        } else {
+            // Keluar Full Screen
+            if (document.exitFullscreen) {
+                document.exitFullscreen();
+            }
+        }
+    }
+
+    // Event listener ini akan kesan bila user tekan ESC untuk keluar Full Screen
+    document.addEventListener('fullscreenchange', () => {
+        const gamePopup = document.getElementById('game-popup');
+        // Jika user baru keluar dari full screen (fullscreenElement = null) dan game popup masih aktif
+        if (!document.fullscreenElement && gamePopup.classList.contains('active')) {
+            closeGamePopup(); // Terus tutup game
+        }
+    });
+
         function closeGamePopup() {
             playSound(100, 0.2);
             document.getElementById('game-popup').classList.remove('active');
@@ -344,14 +402,26 @@
         document.getElementById('btn-start').addEventListener('click', startMission);
 
         window.addEventListener('keydown', (e) => {
-            // Halang scroll guna arrow key bila dalam menu
-            if(document.getElementById('game-popup').classList.contains('active')) return; 
-
-            if(e.key === "ArrowUp") moveUp();
-            if(e.key === "ArrowDown") moveDown();
-            if(e.key === "Enter") startMission();
+            if(e.key === "ArrowUp" && !document.getElementById('game-popup').classList.contains('active')) moveUp();
+            if(e.key === "ArrowDown" && !document.getElementById('game-popup').classList.contains('active')) moveDown();
+            if(e.key === "Enter" && !document.getElementById('game-popup').classList.contains('active')) startMission();
+            
+            // Kemaskini fungsi ESC
             if(e.key === "Escape") {
-                closeInfo();
+                const gamePopup = document.getElementById('game-popup');
+                // Kalau game tengah berjalan (popup aktif), tekan ESC akan tutup game
+                if (gamePopup.classList.contains('active')) {
+                    // Jika dalam full screen, exitFullscreen akan trigger 'fullscreenchange' event kat atas.
+                    // Jika tak full screen, kita tutup secara manual di sini.
+                    if (document.fullscreenElement) {
+                        document.exitFullscreen(); 
+                    } else {
+                        closeGamePopup();
+                    }
+                } else {
+                    // Kalau kat menu utama, tekan ESC tutup Info Modal (kalau terbuka)
+                    closeInfo();
+                }
             }
         });
 
