@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Carrom Neon: Cyber Edition</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;900&family=Press+Start+2P&display=swap" rel="stylesheet">
+    <style>
+        body {
+            background-color: #020617;
+            color: #fff;
+            font-family: 'Orbitron', sans-serif;
+            margin: 0;
+            overflow: hidden;
+            touch-action: none;
+        }
+
+        #game-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            width: 100vw;
+            background: radial-gradient(circle at center, #1e1b4b 0%, #020617 100%);
+        }
+
+        #main-menu {
+            position: fixed;
+            inset: 0;
+            z-index: 200;
+            background: rgba(2, 6, 23, 0.98);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(15px);
+            transition: opacity 0.5s ease;
+        }
+
+        .arcade-title {
+            font-family: 'Press Start 2P', cursive;
+            font-size: 3.5rem;
+            color: #22d3ee;
+            text-shadow: 0 0 10px #0891b2, 0 0 20px #0891b2, 4px 4px 0px #1e1b4b;
+            margin-bottom: 2rem;
+            animation: pulse-glow 2s infinite alternate;
+            text-align: center;
+        }
+
+        @keyframes pulse-glow {
+            from { text-shadow: 0 0 10px #0891b2, 0 0 20px #0891b2; }
+            to { text-shadow: 0 0 20px #22d3ee, 0 0 40px #22d3ee; }
+        }
+
+        .insert-coin {
+            font-family: 'Press Start 2P', cursive;
+            font-size: 1.2rem;
+            color: #f472b6;
+            cursor: pointer;
+            animation: blink 0.8s step-end infinite;
+            background: none;
+            border: none;
+            padding: 20px;
+            text-transform: uppercase;
+        }
+
+        @keyframes blink {
+            50% { opacity: 0; }
+        }
+
+        .game-layout {
+            display: flex;
+            align-items: center;
+            gap: 24px;
+        }
+        canvas {
+            box-shadow: 0 0 100px rgba(34, 211, 238, 0.2);
+            max-width: 85vw;
+            max-height: 70vh;
+            border: 4px solid #0891b2;
+            border-radius: 8px;
+            background: #020617;
+        }
+
+        .pressure-sidebar {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 400px;
+            width: 40px;
+            background: rgba(15, 23, 42, 0.8);
+            border: 2px solid #334155;
+            border-radius: 20px;
+            padding: 10px 0;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+        }
+        .pressure-track {
+            flex-grow: 1;
+            width: 10px;
+            background: #020617;
+            border-radius: 5px;
+            position: relative;
+            overflow: hidden;
+            border: 1px solid #1e293b;
+        }
+        #pressure-fill {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 0%;
+            background: linear-gradient(to top, #22d3ee, #818cf8, #f472b6);
+            box-shadow: 0 0 15px #f472b6;
+            transition: height 0.1s ease-out;
+        }
+
+        .ui-panel {
+            background: rgba(15, 23, 42, 0.9);
+            padding: 1rem 3rem;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            display: flex;
+            gap: 50px;
+            border: 1px solid #22d3ee;
+            box-shadow: 0 0 30px rgba(34, 211, 238, 0.15);
+        }
+        .stat-value { font-size: 1rem; font-weight: 900; color: #fff; font-family: 'Press Start 2P', cursive; }
+        .stat-label { font-size: 0.65rem; text-transform: uppercase; color: #22d3ee; letter-spacing: 2px; margin-bottom: 5px; }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <div id="main-menu">
+        <h1 class="arcade-title">NEON<br>CARROM</h1>
+        <button class="insert-coin" id="start-btn">PRESS SPACE TO START</button>
+        <div class="mt-12 text-cyan-400 text-xs animate-pulse font-mono tracking-widest uppercase">Performance Optimized • v3.0</div>
+    </div>
+
+    <div id="turn-display" class="hidden px-6 py-2 rounded-full bg-cyan-950 text-cyan-400 text-xs font-bold uppercase tracking-widest mb-4 border border-cyan-500 shadow-[0_0_15px_rgba(6,182,212,0.4)]">Player Turn</div>
+    
+    <div class="ui-panel">
+        <div class="flex flex-col items-center">
+            <span class="stat-label">USER</span>
+            <span id="player-score" class="stat-value">000</span>
+        </div>
+        <div class="flex flex-col items-center">
+            <span class="stat-label">ENRG</span>
+            <span id="strikes" class="stat-value">10</span>
+        </div>
+        <div class="flex flex-col items-center">
+            <span class="stat-label">CPU</span>
+            <span id="ai-score" class="stat-value">000</span>
+        </div>
+    </div>
+    
+    <div class="game-layout">
+        <canvas id="carromBoard"></canvas>
+        <div class="pressure-sidebar">
+            <div class="pressure-track">
+                <div id="pressure-fill"></div>
+            </div>
+            <span id="pressure-text" class="text-[10px] font-mono mt-2 text-cyan-400">0%</span>
+        </div>
+    </div>
+
+    <div id="msg-box" class="hidden fixed inset-0 flex items-center justify-center bg-slate-950/95 z-[300]">
+        <div class="text-center">
+            <h2 id="msg-title" class="text-7xl font-black mb-4 text-cyan-400 uppercase tracking-tighter">MISSION COMPLETE</h2>
+            <p id="msg-text" class="text-pink-500 mb-8 text-xl font-mono">FINAL SCORE: 0</p>
+            <p class="text-cyan-400/50 mb-4 animate-pulse text-xs">PRESS SPACE TO REBOOT</p>
+            <button onclick="location.reload()" class="bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-black py-4 px-12 rounded-full uppercase tracking-widest transition-all hover:scale-110 shadow-[0_0_20px_#22d3ee]">
+                REBOOT
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    function playSound(freq, type, duration, vol = 0.1, slide = 0) {
+        if(audioCtx.state === 'suspended') return;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        if (slide) osc.frequency.exponentialRampToValueAtTime(slide, audioCtx.currentTime + duration);
+        gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + duration);
+    }
+
+    const sfx = {
+        hit: () => playSound(200 + Math.random() * 600, 'square', 0.05, 0.03),
+        wall: () => playSound(80, 'sine', 0.1, 0.1),
+        pocket: () => {
+            playSound(880, 'triangle', 0.1, 0.1, 440);
+            setTimeout(() => playSound(1320, 'triangle', 0.2, 0.1, 880), 100);
+        },
+        start: () => {
+            playSound(261, 'sawtooth', 0.1, 0.05);
+            setTimeout(() => playSound(329, 'sawtooth', 0.1, 0.05), 100);
+            setTimeout(() => playSound(523, 'sawtooth', 0.3, 0.05, 1046), 200);
+        }
+    };
+
+    const canvas = document.getElementById('carromBoard');
+    const ctx = canvas.getContext('2d');
+    
+    // Performance optimization: Offscreen board
+    const offscreenCanvas = document.createElement('canvas');
+    const offCtx = offscreenCanvas.getContext('2d');
+    offscreenCanvas.width = 800;
+    offscreenCanvas.height = 800;
+
+    const mainMenu = document.getElementById('main-menu');
+    const startBtn = document.getElementById('start-btn');
+    const pressureFill = document.getElementById('pressure-fill');
+    const pressureText = document.getElementById('pressure-text');
+    const turnDisplay = document.getElementById('turn-display');
+    const msgBox = document.getElementById('msg-box');
+
+    const BOARD_SIZE = 800; 
+    const POCKET_RADIUS = 48;
+    const FRICTION = 0.99; 
+    const STRIKER_RADIUS = 28;
+    const PIECE_RADIUS = 20;
+    const WALL_WIDTH = 40;
+    const MAX_DRAG_DIST = 220;
+
+    const SUB_STEPS = 6; // Balanced precision/speed
+    const TICK_RATE = 1000 / 60;
+    let lastTime = 0;
+    let accumulator = 0;
+
+    canvas.width = BOARD_SIZE;
+    canvas.height = BOARD_SIZE;
+
+    let playerScore = 0, aiScore = 0, strikes = 10;
+    let pieces = [], striker = null;
+    let isDragging = false, dragStart = {x:0, y:0}, dragEnd = {x:0, y:0};
+    let gameState = 'menu'; 
+    let currentTurn = 'player';
+
+    class Piece {
+        constructor(x, y, radius, type) {
+            this.x = x; this.y = y; this.radius = radius; this.type = type; 
+            this.vx = 0; this.vy = 0; this.mass = radius; this.inPocket = false;
+            const styles = {
+                'white': { color: '#22d3ee', glow: '#0891b2', val: 20 },
+                'black': { color: '#818cf8', glow: '#4f46e5', val: 10 },
+                'queen': { color: '#f472b6', glow: '#db2777', val: 50 },
+                'striker': { color: '#ffffff', glow: '#ffffff', val: 0 }
+            };
+            this.style = styles[type];
+        }
+
+        draw() {
+            if (this.inPocket) return;
+            
+            ctx.beginPath(); 
+            ctx.arc(this.x, this.y, this.radius, 0, 6.28); // Faster than Math.PI * 2
+            ctx.strokeStyle = this.style.color;
+            ctx.lineWidth = 3;
+            ctx.stroke();
+            
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.radius * 0.4, 0, 6.28);
+            ctx.fillStyle = this.style.color;
+            ctx.fill();
+
+            if (this.type === 'striker') {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius * 0.8, 0, 6.28);
+                ctx.setLineDash([4, 4]);
+                ctx.stroke();
+                ctx.setLineDash([]);
+            }
+        }
+
+        update(dt) {
+            if (this.inPocket) return;
+            
+            this.x += this.vx * dt; 
+            this.y += this.vy * dt;
+            
+            this.vx *= Math.pow(FRICTION, dt); 
+            this.vy *= Math.pow(FRICTION, dt);
+            
+            if (Math.abs(this.vx) < 0.1) this.vx = 0;
+            if (Math.abs(this.vy) < 0.1) this.vy = 0;
+            
+            const limit = WALL_WIDTH + this.radius;
+            const maxLimit = BOARD_SIZE - WALL_WIDTH - this.radius;
+            
+            if (this.x < limit) { this.vx *= -0.7; this.x = limit; if(Math.abs(this.vx) > 1) sfx.wall(); }
+            else if (this.x > maxLimit) { this.vx *= -0.7; this.x = maxLimit; if(Math.abs(this.vx) > 1) sfx.wall(); }
+            
+            if (this.y < limit) { this.vy *= -0.7; this.y = limit; if(Math.abs(this.vy) > 1) sfx.wall(); }
+            else if (this.y > maxLimit) { this.vy *= -0.7; this.y = maxLimit; if(Math.abs(this.vy) > 1) sfx.wall(); }
+            
+            const px = [WALL_WIDTH, BOARD_SIZE - WALL_WIDTH];
+            const py = [WALL_WIDTH, BOARD_SIZE - WALL_WIDTH];
+            for(let x of px) {
+                for(let y of py) {
+                    const dx = this.x - x;
+                    const dy = this.y - y;
+                    if (dx*dx + dy*dy < POCKET_RADIUS*POCKET_RADIUS) {
+                        this.pocket();
+                        return;
+                    }
+                }
+            }
+        }
+
+        pocket() {
+            this.inPocket = true; this.vx = 0; this.vy = 0;
+            sfx.pocket();
+            if (this.type === 'striker') {
+                if (currentTurn === 'player') playerScore = Math.max(0, playerScore - 10);
+                else aiScore = Math.max(0, aiScore - 10);
+            } else {
+                if (currentTurn === 'player') { playerScore += this.style.val; strikes = Math.min(15, strikes+1); }
+                else aiScore += this.style.val;
+            }
+            updateUI();
+        }
+    }
+
+    // Render board once to buffer
+    function preRenderBoard() {
+        offCtx.fillStyle = '#020617';
+        offCtx.fillRect(0,0,800,800);
+        offCtx.strokeStyle = '#0f172a';
+        offCtx.lineWidth = 1;
+        offCtx.beginPath();
+        for(let i=0; i<=800; i+=80) {
+            offCtx.moveTo(i, 0); offCtx.lineTo(i, 800);
+            offCtx.moveTo(0, i); offCtx.lineTo(800, i);
+        }
+        offCtx.stroke();
+
+        offCtx.fillStyle = '#0f172a';
+        offCtx.strokeStyle = '#22d3ee';
+        offCtx.lineWidth = 2;
+        offCtx.fillRect(0,0,800,WALL_WIDTH);
+        offCtx.fillRect(0,800-WALL_WIDTH,800,WALL_WIDTH);
+        offCtx.fillRect(0,0,WALL_WIDTH,800);
+        offCtx.fillRect(800-WALL_WIDTH,0,WALL_WIDTH,800);
+        offCtx.strokeRect(2,2,796,796);
+
+        offCtx.save();
+        offCtx.shadowBlur = 10;
+        offCtx.shadowColor = '#22d3ee';
+        offCtx.strokeStyle = '#22d3ee';
+        offCtx.lineWidth = 2;
+        offCtx.beginPath(); offCtx.arc(400, 400, 110, 0, 6.28); offCtx.stroke();
+        offCtx.shadowColor = '#f472b6';
+        offCtx.fillStyle = '#f472b6';
+        offCtx.beginPath(); offCtx.arc(400, 400, 15, 0, 6.28); offCtx.fill();
+
+        const baselineY = [660, 140];
+        baselineY.forEach(y => {
+            offCtx.shadowColor = '#22d3ee';
+            offCtx.strokeStyle = '#22d3ee';
+            offCtx.strokeRect(150, y-15, 500, 30);
+            offCtx.shadowColor = '#f472b6';
+            offCtx.fillStyle = '#f472b6';
+            offCtx.beginPath(); offCtx.arc(150, y, 12, 0, 6.28); offCtx.fill();
+            offCtx.beginPath(); offCtx.arc(650, y, 12, 0, 6.28); offCtx.fill();
+        });
+
+        offCtx.shadowBlur = 0;
+        offCtx.strokeStyle = '#1e293b';
+        offCtx.beginPath();
+        [[120,120],[680,120],[120,680],[680,680]].forEach(p => {
+            offCtx.moveTo(400, 400); offCtx.lineTo(p[0], p[1]);
+        });
+        offCtx.stroke();
+        offCtx.restore();
+
+        offCtx.fillStyle = '#000';
+        [[WALL_WIDTH, WALL_WIDTH], [760, WALL_WIDTH], [WALL_WIDTH, 760], [760, 760]].forEach(p => {
+            offCtx.beginPath(); offCtx.arc(p[0], p[1], POCKET_RADIUS, 0, 6.28); offCtx.fill();
+            offCtx.strokeStyle = '#f472b6';
+            offCtx.lineWidth = 3;
+            offCtx.stroke();
+        });
+    }
+
+    function initBoard() {
+        pieces = []; const cx=400, cy=400;
+        pieces.push(new Piece(cx, cy, PIECE_RADIUS, 'queen'));
+        for(let i=0; i<6; i++) {
+            let a = i*60*Math.PI/180;
+            pieces.push(new Piece(cx+Math.cos(a)*42, cy+Math.sin(a)*42, PIECE_RADIUS, i%2?'black':'white'));
+        }
+        for(let i=0; i<12; i++) {
+            let a = (i*30+15)*Math.PI/180;
+            pieces.push(new Piece(cx+Math.cos(a)*84, cy+Math.sin(a)*84, PIECE_RADIUS, i%2?'white':'black'));
+        }
+        resetStriker('player');
+        preRenderBoard();
+    }
+
+    function resetStriker(turn) {
+        currentTurn = turn;
+        const y = (turn === 'player') ? 660 : 140;
+        striker = new Piece(400, y, STRIKER_RADIUS, 'striker');
+        gameState = 'positioning';
+        updatePressure(0);
+        turnDisplay.innerText = turn==='player'?'USER TURN':'AI PROCESSING';
+        turnDisplay.className = `px-6 py-2 rounded-full text-xs font-bold uppercase tracking-widest mb-4 block border ${turn==='player'?'bg-cyan-950 text-cyan-400 border-cyan-500':'bg-pink-950 text-pink-400 border-pink-500'}`;
+        if(turn === 'ai') setTimeout(performAI, 800);
+    }
+
+    async function performAI() {
+        const targets = pieces.filter(p => !p.inPocket);
+        if(!targets.length) return;
+        const target = targets[Math.floor(Math.random()*targets.length)];
+        const steps = 15;
+        const startX = striker.x;
+        const targetX = Math.max(160, Math.min(640, target.x + (Math.random()*40-20)));
+        for(let i=1; i<=steps; i++) {
+            striker.x = startX + (targetX - startX) * (i/steps);
+            await new Promise(r => setTimeout(r, 15));
+        }
+        gameState = 'aiming';
+        const power = 15 + Math.random()*20;
+        const angle = Math.atan2(target.y - striker.y, target.x - striker.x);
+        for(let p=0; p<=power/40; p+=0.1) { updatePressure(p); await new Promise(r=>setTimeout(r, 20)); }
+        striker.vx = Math.cos(angle)*power; striker.vy = Math.sin(angle)*power;
+        sfx.hit();
+        gameState = 'moving';
+    }
+
+    function updatePressure(p) {
+        pressureFill.style.height = `${p*100}%`;
+        pressureText.innerText = `${Math.round(p*100)}%`;
+    }
+
+    function updatePhysics() {
+        if(gameState !== 'moving') return;
+        
+        for (let s = 0; s < SUB_STEPS; s++) {
+            const dt = 1 / SUB_STEPS;
+            const active = [...pieces, striker].filter(p => !p.inPocket);
+            
+            active.forEach(p => p.update(dt));
+
+            for(let i=0; i<active.length; i++) {
+                const p1 = active[i];
+                for(let j=i+1; j<active.length; j++) {
+                    const p2 = active[j];
+                    const dx = p2.x - p1.x;
+                    const dy = p2.y - p1.y;
+                    const distSq = dx*dx + dy*dy;
+                    const minDist = p1.radius + p2.radius;
+                    
+                    if(distSq < minDist * minDist) {
+                        const d = Math.sqrt(distSq);
+                        const overlap = (minDist - d);
+                        const nx = dx / d;
+                        const ny = dy / d;
+                        
+                        p1.x -= nx * overlap * 0.5;
+                        p1.y -= ny * overlap * 0.5;
+                        p2.x += nx * overlap * 0.5;
+                        p2.y += ny * overlap * 0.5;
+                        
+                        const v1n = p1.vx * nx + p1.vy * ny;
+                        const v2n = p2.vx * nx + p2.vy * ny;
+                        
+                        if (v1n - v2n > 0) {
+                            const m1 = p1.mass;
+                            const m2 = p2.mass;
+                            const impulse = (2.1 * (v1n - v2n)) / (m1 + m2); // 2.1 for slightly more bounce
+                            
+                            p1.vx -= impulse * m2 * nx;
+                            p1.vy -= impulse * m2 * ny;
+                            p2.vx += impulse * m1 * nx;
+                            p2.vy += impulse * m1 * ny;
+                            
+                            if (s === 0 && Math.abs(impulse) > 0.5) sfx.hit();
+                        }
+                    }
+                }
+            }
+        }
+
+        const allStopped = [...pieces, striker].filter(p => !p.inPocket).every(p => Math.abs(p.vx) < 0.2 && Math.abs(p.vy) < 0.2);
+        if(allStopped) {
+            if(strikes <= 0) gameOver();
+            else resetStriker(currentTurn==='player'?'ai':'player');
+        }
+    }
+
+    function draw() {
+        // Drawing buffered background is MUCH faster
+        ctx.drawImage(offscreenCanvas, 0, 0);
+        
+        pieces.forEach(p => p.draw());
+        striker.draw();
+        
+        if(gameState === 'aiming' && isDragging) {
+            let dx = dragStart.x - dragEnd.x, dy = dragStart.y - dragEnd.y;
+            ctx.setLineDash([10, 5]); 
+            ctx.strokeStyle = '#f472b6'; 
+            ctx.lineWidth = 2;
+            ctx.beginPath(); 
+            ctx.moveTo(striker.x, striker.y); 
+            ctx.lineTo(striker.x + dx, striker.y + dy); 
+            ctx.stroke(); 
+            ctx.setLineDash([]);
+        }
+    }
+
+    function updateUI() {
+        document.getElementById('player-score').innerText = String(playerScore).padStart(3, '0');
+        document.getElementById('ai-score').innerText = String(aiScore).padStart(3, '0');
+        document.getElementById('strikes').innerText = strikes;
+    }
+
+    function gameOver() {
+        gameState = 'ended';
+        document.getElementById('msg-title').innerText = playerScore > aiScore ? "VICTORY" : "DEFEAT";
+        document.getElementById('msg-text').innerText = `TOTAL DATA RETRIEVED: ${playerScore}`;
+        msgBox.classList.remove('hidden');
+    }
+
+    const startGame = () => {
+        if (gameState !== 'menu') return;
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        sfx.start();
+        mainMenu.style.opacity = '0';
+        setTimeout(() => {
+            mainMenu.style.display = 'none';
+            turnDisplay.classList.remove('hidden');
+            initBoard();
+            requestAnimationFrame(gameLoop);
+        }, 500);
+    };
+
+    startBtn.onclick = startGame;
+
+    window.addEventListener('keydown', (e) => {
+        if (e.code === 'Space') {
+            if (gameState === 'menu') startGame();
+            else if (gameState === 'ended') location.reload();
+        }
+    });
+
+    function gameLoop(time) {
+        const delta = time - lastTime;
+        lastTime = time;
+        accumulator += Math.min(delta, 100); // Prevent "spiral of death" lag spikes
+        
+        while(accumulator >= TICK_RATE) {
+            updatePhysics();
+            accumulator -= TICK_RATE;
+        }
+        
+        draw();
+        requestAnimationFrame(gameLoop);
+    }
+
+    canvas.onmousedown = canvas.ontouchstart = (e) => {
+        if(gameState === 'moving' || currentTurn === 'ai') return;
+        const rect = canvas.getBoundingClientRect();
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+        const x = (clientX - rect.left) * (800 / rect.width);
+        const y = (clientY - rect.top) * (800 / rect.height);
+        
+        if(Math.hypot(x-striker.x, y-striker.y) < striker.radius*3) {
+            gameState = 'aiming'; isDragging = true; dragStart = {x,y}; dragEnd = {x,y};
+        } else if(gameState === 'positioning' && Math.abs(y-660) < 60) {
+            striker.x = Math.max(160, Math.min(640, x));
+        }
+    };
+
+    window.onmousemove = window.ontouchmove = (e) => {
+        if(!isDragging) return;
+        const rect = canvas.getBoundingClientRect();
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+        dragEnd = { x: (clientX - rect.left) * (800 / rect.width), y: (clientY - rect.top) * (800 / rect.height) };
+        let dx = dragStart.x - dragEnd.x, dy = dragStart.y - dragEnd.y;
+        updatePressure(Math.min(Math.hypot(dx,dy), MAX_DRAG_DIST)/MAX_DRAG_DIST);
+    };
+
+    window.onmouseup = window.ontouchend = () => {
+        if(!isDragging) return;
+        isDragging = false;
+        let dx = dragStart.x - dragEnd.x, dy = dragStart.y - dragEnd.y;
+        let d = Math.min(Math.hypot(dx,dy), MAX_DRAG_DIST);
+        if(d > 15) {
+            striker.vx = dx/MAX_DRAG_DIST * 45; striker.vy = dy/MAX_DRAG_DIST * 45;
+            strikes--; updateUI(); sfx.hit(); gameState = 'moving';
+        } else {
+            gameState = 'positioning'; updatePressure(0);
+        }
+    };
+</script>
+</body>
+</html>
