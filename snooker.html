@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ms">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -66,9 +66,11 @@
 
         .menu-card {
             background: #222;
-            padding: 40px;
+            padding: 30px;
             border: 8px solid #fff;
-            width: 800px;
+            width: 850px;
+            max-height: 90vh;
+            overflow-y: auto;
             text-align: center;
             box-shadow: 20px 20px 0px #000;
             animation: float 3s ease-in-out infinite;
@@ -95,12 +97,13 @@
         .pixel-btn {
             background: #444;
             border: 4px solid #fff;
-            padding: 15px;
+            padding: 12px;
             font-size: 10px;
             color: #fff;
             margin: 5px;
             cursor: pointer;
             transition: all 0.1s;
+            font-family: 'Press Start 2P', cursive;
         }
         .pixel-btn:hover { background: #666; transform: scale(1.05); }
         .pixel-btn:active { transform: translateY(4px); background: #222; }
@@ -108,6 +111,19 @@
         .pixel-btn.primary { background: #080; border-color: #0f0; }
         .pixel-btn.danger { background: #800; border-color: #f00; }
         .pixel-btn.warning { background: #b45309; border-color: #fbbf24; }
+
+        .pixel-input {
+            background: #111;
+            border: 4px solid #fff;
+            color: #fff;
+            padding: 10px;
+            font-family: 'Press Start 2P', cursive;
+            font-size: 10px;
+            width: 100%;
+            text-align: center;
+            outline: none;
+        }
+        .pixel-input:focus { border-color: #fbbf24; }
 
         .skin-option {
             cursor: pointer;
@@ -136,7 +152,7 @@
         }
 
         .text-pixel { font-size: 10px; line-height: 1.5; }
-        .title-pixel { font-size: 32px; color: #fbbf24; margin-bottom: 30px; text-shadow: 4px 4px #000; }
+        .title-pixel { font-size: 32px; color: #fbbf24; margin-bottom: 20px; text-shadow: 4px 4px #000; }
         
         #pause-btn {
             position: absolute;
@@ -149,6 +165,10 @@
             font-size: 10px;
             cursor: pointer;
         }
+
+        .menu-card::-webkit-scrollbar { width: 10px; }
+        .menu-card::-webkit-scrollbar-track { background: #111; }
+        .menu-card::-webkit-scrollbar-thumb { background: #fff; border: 2px solid #111; }
     </style>
 </head>
 <body>
@@ -159,16 +179,16 @@
 
     <div class="ui-panel">
         <div>
-            <div class="text-pixel text-blue-400 mb-2">P1 SKOR</div>
+            <div id="p1-label-ui" class="text-pixel text-blue-400 mb-2">PLAYER 1</div>
             <div id="player-score" class="text-2xl">0</div>
         </div>
         <div class="text-center">
-            <div id="turn-indicator" class="text-pixel bg-blue-700 px-2 py-1 mb-2">GILIRAN ANDA</div>
-            <div id="target-info" class="text-pixel">SASARAN: <span id="target-color-text" class="text-red-500">MERAH</span></div>
+            <div id="turn-indicator" class="text-pixel bg-blue-700 px-2 py-1 mb-2">YOUR TURN</div>
+            <div id="target-info" class="text-pixel">TARGET: <span id="target-color-text" class="text-red-500">RED</span></div>
             <div id="break-info" class="text-pixel mt-2 text-gray-400">BREAK: 0</div>
         </div>
         <div class="text-right">
-            <div class="text-pixel text-red-500 mb-2">AI SKOR</div>
+            <div id="p2-label-ui" class="text-pixel text-red-500 mb-2">AI</div>
             <div id="ai-score" class="text-2xl">0</div>
         </div>
     </div>
@@ -179,24 +199,43 @@
             
             <div id="menu-view-main">
                 <div class="mb-6">
-                    <p class="text-pixel text-gray-400 mb-4">TAHAP AI:</p>
+                    <p class="text-pixel text-gray-400 mb-4">GAME MODE:</p>
                     <div class="flex justify-center gap-2">
-                        <button onclick="setDifficulty('easy')" id="diff-easy" class="pixel-btn">MUDAH</button>
-                        <button onclick="setDifficulty('normal')" id="diff-normal" class="pixel-btn active">SEDERHANA</button>
-                        <button onclick="setDifficulty('pro')" id="diff-pro" class="pixel-btn">PAKAR</button>
+                        <button onclick="setGameMode('vs-ai')" id="mode-ai" class="pixel-btn active">VS AI</button>
+                        <button onclick="setGameMode('vs-player')" id="mode-player" class="pixel-btn">VS P2</button>
+                    </div>
+                </div>
+
+                <div class="mb-6 grid grid-cols-2 gap-4">
+                    <div>
+                        <p class="text-pixel text-gray-400 mb-2">P1 NAME:</p>
+                        <input type="text" id="input-p1-name" class="pixel-input" maxlength="10" value="PLAYER 1">
+                    </div>
+                    <div>
+                        <p id="p2-input-label" class="text-pixel text-gray-400 mb-2">AI NAME:</p>
+                        <input type="text" id="input-p2-name" class="pixel-input" maxlength="10" value="AI">
+                    </div>
+                </div>
+
+                <div id="ai-difficulty-container" class="mb-6">
+                    <p class="text-pixel text-gray-400 mb-4">AI DIFFICULTY:</p>
+                    <div class="flex justify-center gap-2">
+                        <button onclick="setDifficulty('easy')" id="diff-easy" class="pixel-btn">EASY</button>
+                        <button onclick="setDifficulty('normal')" id="diff-normal" class="pixel-btn active">NORMAL</button>
+                        <button onclick="setDifficulty('pro')" id="diff-pro" class="pixel-btn">PRO</button>
                     </div>
                 </div>
 
                 <div class="mb-6">
-                    <p class="text-pixel text-gray-400 mb-4">PILIH SKIN ISYARAT:</p>
+                    <p class="text-pixel text-gray-400 mb-4">CHOOSE CUE SKIN:</p>
                     <div class="flex flex-wrap justify-center gap-2">
                         <div onclick="setSkin('classic')" id="skin-classic" class="skin-option active">
                             <div class="w-full h-3 bg-amber-800 mb-1"></div>
-                            <span class="text-pixel">KLASIK</span>
+                            <span class="text-pixel">CLASSIC</span>
                         </div>
                         <div onclick="setSkin('carbon')" id="skin-carbon" class="skin-option">
                             <div class="w-full h-3 bg-gray-800 mb-1"></div>
-                            <span class="text-pixel">KARBON</span>
+                            <span class="text-pixel">CARBON</span>
                         </div>
                         <div onclick="setSkin('neon')" id="skin-neon" class="skin-option">
                             <div class="w-full h-3 bg-cyan-500 mb-1"></div>
@@ -215,7 +254,7 @@
 
                 <div class="flex flex-col gap-3 mt-6">
                     <button id="btn-resume" onclick="toggleMenu()" class="pixel-btn primary" style="display:none;">RESUME</button>
-                    <button id="btn-start" onclick="startGame()" class="pixel-btn primary">MULAKAN</button>
+                    <button id="btn-start" onclick="startGame()" class="pixel-btn primary">START GAME</button>
                     <button id="btn-restart" onclick="restartGame()" class="pixel-btn warning" style="display:none;">RESTART</button>
                     <button id="btn-home" onclick="goHome()" class="pixel-btn danger" style="display:none;">HOME</button>
                 </div>
@@ -231,6 +270,32 @@
 </div>
 
 <script>
+    // --- AUDIO SYSTEM ---
+    const AudioEngine = {
+        ctx: new (window.AudioContext || window.webkitAudioContext)(),
+        
+        playHit(volume = 1) {
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(150, this.ctx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(40, this.ctx.currentTime + 0.1);
+            gain.gain.setValueAtTime(volume * 0.2, this.ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.1);
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.start();
+            osc.stop(this.ctx.currentTime + 0.1);
+        },
+
+        speak(text) {
+            const msg = new SpeechSynthesisUtterance(text);
+            msg.lang = 'en-US';
+            msg.rate = 1.1;
+            window.speechSynthesis.speak(msg);
+        }
+    };
+
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
     
@@ -264,6 +329,7 @@
 
     let balls = [], cueBall = null;
     let turn = 'player', scores = {player:0, ai:0}, currentBreak = 0;
+    let playerNames = {player: "PLAYER 1", ai: "AI"};
     let nextTarget = 'red'; 
     let targetColorIndex = 0;
     let isMoving = false, isCharging = false, power = 0, cueAngle = 0;
@@ -272,6 +338,7 @@
     let ballsPottedThisShot = [];
     let currentSkin = 'classic';
     let difficulty = 'normal';
+    let gameMode = 'vs-ai'; 
     let gameEnded = false;
 
     class Ball {
@@ -297,10 +364,15 @@
             this.vx *= FRICTION; this.vy *= FRICTION;
             if (Math.abs(this.vx) < 0.15) this.vx = 0;
             if (Math.abs(this.vy) < 0.15) this.vy = 0;
-            if (this.x < BALL_R) { this.vx *= -WALL_BOUNCE; this.x = BALL_R; }
-            if (this.x > TABLE_W - BALL_R) { this.vx *= -WALL_BOUNCE; this.x = TABLE_W - BALL_R; }
-            if (this.y < BALL_R) { this.vy *= -WALL_BOUNCE; this.y = BALL_R; }
-            if (this.y > TABLE_H - BALL_R) { this.vy *= -WALL_BOUNCE; this.y = TABLE_H - BALL_R; }
+            
+            if (this.x < BALL_R || this.x > TABLE_W - BALL_R) { 
+                if(Math.abs(this.vx) > 0.5) AudioEngine.playHit(0.5);
+                this.vx *= -WALL_BOUNCE; this.x = this.x < BALL_R ? BALL_R : TABLE_W - BALL_R; 
+            }
+            if (this.y < BALL_R || this.y > TABLE_H - BALL_R) { 
+                if(Math.abs(this.vy) > 0.5) AudioEngine.playHit(0.5);
+                this.vy *= -WALL_BOUNCE; this.y = this.y < BALL_R ? BALL_R : TABLE_H - BALL_R; 
+            }
             this.checkPocket();
         }
         checkPocket() {
@@ -324,6 +396,9 @@
         nextTarget = 'red';
         targetColorIndex = 0;
         gameEnded = false;
+
+        playerNames.player = document.getElementById('input-p1-name').value.toUpperCase() || "PLAYER 1";
+        playerNames.ai = document.getElementById('input-p2-name').value.toUpperCase() || (gameMode === 'vs-ai' ? "AI" : "PLAYER 2");
         
         cueBall = new Ball(200, 250, COLORS.white, 'cue', 0);
         balls.push(cueBall);
@@ -345,12 +420,15 @@
     }
 
     function startGame() {
+        if (AudioEngine.ctx.state === 'suspended') AudioEngine.ctx.resume();
         hasGameStarted = true;
         document.getElementById('btn-start').style.display = 'none';
         document.getElementById('btn-resume').style.display = 'block';
         document.getElementById('btn-restart').style.display = 'block';
         document.getElementById('btn-home').style.display = 'block';
+        initGame();
         toggleMenu();
+        AudioEngine.speak("Game started.");
     }
 
     function restartGame() {
@@ -360,17 +438,11 @@
         isPaused = false;
         document.getElementById('menu-overlay').style.display = 'none';
         updateUI();
+        AudioEngine.speak("Restarting game.");
     }
 
     function goHome() {
-        hasGameStarted = false;
-        isPaused = true;
-        document.getElementById('btn-start').style.display = 'block';
-        document.getElementById('btn-resume').style.display = 'none';
-        document.getElementById('btn-restart').style.display = 'none';
-        document.getElementById('btn-home').style.display = 'none';
-        initGame();
-        document.getElementById('menu-overlay').style.display = 'flex';
+        location.reload();
     }
 
     function toggleMenu() {
@@ -418,6 +490,9 @@
                 if (b1.inPocket || b2.inPocket) continue;
                 const dx = b2.x - b1.x, dy = b2.y - b1.y, dist = Math.hypot(dx, dy);
                 if (dist < BALL_R * 2) {
+                    const totalSpeed = Math.hypot(b1.vx, b1.vy) + Math.hypot(b2.vx, b2.vy);
+                    if(totalSpeed > 0.5) AudioEngine.playHit(Math.min(1, totalSpeed / 10));
+
                     if (b1 === cueBall && firstBallHit === null) firstBallHit = b2;
                     if (b2 === cueBall && firstBallHit === null) firstBallHit = b1;
                     const angle = Math.atan2(dy, dx), overlap = BALL_R * 2 - dist;
@@ -440,31 +515,31 @@
         const redsRemaining = balls.some(r => r.type === 'red' && !r.inPocket);
 
         if (!firstBallHit) {
-            foul = true; foulReason = "MISS! TIADA PELANGGARAN";
+            foul = true; foulReason = "MISS! NO BALL HIT";
         } else {
             let expectedType = nextTarget === 'red' ? 'red' : 'color';
             if (!redsRemaining && typeof nextTarget === 'string' && nextTarget !== 'red' && nextTarget !== 'color') {
                  if (firstBallHit.spotId !== nextTarget) {
-                     foul = true; foulReason = `FOUL! MESTI LANGGAR ${nextTarget.toUpperCase()}`;
+                     foul = true; foulReason = `FOUL! MUST HIT ${nextTarget.toUpperCase()}`;
                      foulValue = Math.max(4, firstBallHit.value);
                  }
             } else if (firstBallHit.type !== expectedType) {
-                foul = true; foulReason = `FOUL! MESTI LANGGAR ${expectedType === 'red' ? 'MERAH' : 'WARNA'}`;
+                foul = true; foulReason = `FOUL! MUST HIT ${expectedType === 'red' ? 'RED' : 'COLOR'}`;
                 foulValue = Math.max(4, firstBallHit.value);
             }
         }
 
         if (ballsPottedThisShot.length > 0) {
             if (ballsPottedThisShot.find(b => b.type === 'cue')) {
-                foul = true; foulReason = "SCRATCH! PUTIH MASUK";
+                foul = true; foulReason = "SCRATCH! CUE BALL POTTED";
                 foulValue = Math.max(foulValue, 4);
                 resetBall(cueBall, true);
             }
             ballsPottedThisShot.forEach(b => {
                 if (!foul) {
-                    if (nextTarget === 'red' && b.type !== 'red') { foul = true; foulReason = "FOUL! WARNA MASUK"; }
-                    else if (nextTarget === 'color' && b.type !== 'color') { foul = true; foulReason = "FOUL! MERAH MASUK"; }
-                    else if (!redsRemaining && b.spotId !== nextTarget) { foul = true; foulReason = `FOUL! BOLA ${b.spotId.toUpperCase()} MASUK`; }
+                    if (nextTarget === 'red' && b.type !== 'red') { foul = true; foulReason = "FOUL! COLOR POTTED"; }
+                    else if (nextTarget === 'color' && b.type !== 'color') { foul = true; foulReason = "FOUL! RED POTTED"; }
+                    else if (!redsRemaining && b.spotId !== nextTarget) { foul = true; foulReason = `FOUL! ${b.spotId.toUpperCase()} POTTED`; }
                     if (foul) foulValue = Math.max(foulValue, b.value);
                 } else {
                     foulValue = Math.max(foulValue, b.value);
@@ -482,11 +557,14 @@
         if (foul) { 
             scores[currentOpponent] += foulValue;
             showFoul(`${foulReason} (+${foulValue})`);
+            AudioEngine.speak("Foul. Points awarded to opponent.");
             if (redsRemaining) nextTarget = 'red'; else nextTarget = COLOR_ORDER[targetColorIndex];
             ballsPottedThisShot.forEach(b => { if (b.type === 'color') resetBall(b); });
             switchTurn(); 
         } else if (scored) { 
             scores[turn] += points; currentBreak += points;
+            AudioEngine.speak(`${points} points scored.`);
+
             if (redsRemaining) {
                 nextTarget = (nextTarget === 'red') ? 'color' : 'red';
             } else {
@@ -504,17 +582,23 @@
         }
 
         ballsPottedThisShot = []; firstBallHit = null; updateUI();
-        if (turn === 'ai' && !gameEnded) setTimeout(aiAction, 1000);
+        if (gameMode === 'vs-ai' && turn === 'ai' && !gameEnded) setTimeout(aiAction, 1000);
     }
 
     function endGame() {
         gameEnded = true;
         isPaused = true;
-        const winner = scores.player > scores.ai ? "P1 MENANG!" : "AI MENANG!";
+        const winnerName = scores.player > scores.ai ? playerNames.player : playerNames.ai;
+        const winner = `${winnerName} WINS!`;
+        AudioEngine.speak(`Game over. ${winnerName} wins with ${Math.max(scores.player, scores.ai)} points.`);
         document.getElementById('menu-content-container').innerHTML = `
-            <h1 class="title-pixel">TAMAT!</h1>
+            <h1 class="title-pixel">GAME OVER!</h1>
             <p class="text-pixel text-blue-500 mb-8">${winner}</p>
-            <button onclick="restartGame()" class="pixel-btn primary">MAIN SEMULA</button>
+            <div class="mb-4 text-pixel">
+                ${playerNames.player}: ${scores.player}<br>
+                ${playerNames.ai}: ${scores.ai}
+            </div>
+            <button onclick="restartGame()" class="pixel-btn primary">PLAY AGAIN</button>
             <button onclick="goHome()" class="pixel-btn danger">HOME</button>
         `;
         document.getElementById('menu-overlay').style.display = 'flex';
@@ -526,61 +610,118 @@
         else if (b.spotId) { b.x = SPOTS[b.spotId].x; b.y = SPOTS[b.spotId].y; }
     }
 
-    function switchTurn() { turn = (turn === 'player') ? 'ai' : 'player'; currentBreak = 0; updateUI(); }
+    function switchTurn() { 
+        turn = (turn === 'player') ? 'ai' : 'player'; 
+        currentBreak = 0; 
+        updateUI(); 
+        const nextPlayer = (turn === 'player') ? playerNames.player : playerNames.ai;
+        AudioEngine.speak(`${nextPlayer}'s turn.`);
+    }
 
     function drawCueAndGuide() {
-        if (isMoving || isPlacingCueBall || isPaused || turn === 'ai' || gameEnded) return;
-        const px = cueBall.x + PADDING, py = cueBall.y + PADDING;
+        if (isMoving || isPlacingCueBall || isPaused || gameEnded) return;
+        if (gameMode === 'vs-ai' && turn === 'ai') return;
         
-        let rayX = cueBall.x, rayY = cueBall.y;
+        const px = cueBall.x + PADDING, py = cueBall.y + PADDING;
         let rayVx = Math.cos(cueAngle), rayVy = Math.sin(cueAngle);
-        let maxReflections = 1;
-        let currentLen = 0;
-        let points = [{x: px, y: py}];
+        
+        const redsRemaining = balls.some(r => r.type === 'red' && !r.inPocket);
 
-        for (let r = 0; r <= maxReflections; r++) {
-            let hit = null;
-            let distToWall = Infinity;
-            for (let b of balls) {
-                if (b === cueBall || b.inPocket) continue;
-                let dx = b.x - rayX, dy = b.y - rayY;
-                let dot = dx * rayVx + dy * rayVy;
-                if (dot <= 0) continue;
-                let perpDistSq = (dx*dx + dy*dy) - dot*dot;
-                if (perpDistSq < (BALL_R*2)*(BALL_R*2)) {
-                    let d = dot - Math.sqrt((BALL_R*2)*(BALL_R*2) - perpDistSq);
-                    if (d > 0 && (!hit || d < hit.dist)) hit = {dist: d, ball: b};
-                }
-            }
-            let tx = rayVx > 0 ? (TABLE_W - BALL_R - rayX) / rayVx : (BALL_R - rayX) / rayVx;
-            let ty = rayVy > 0 ? (TABLE_H - BALL_R - rayY) / rayVy : (BALL_R - rayY) / rayVy;
-            let wallD = Math.min(tx, ty);
-
-            if (hit && hit.dist < wallD) {
-                points.push({x: (rayX + rayVx * hit.dist) + PADDING, y: (rayY + rayVy * hit.dist) + PADDING, ball: true});
-                break; 
-            } else {
-                let d = Math.min(wallD, 600 - currentLen);
-                rayX += rayVx * d;
-                rayY += rayVy * d;
-                points.push({x: rayX + PADDING, y: rayY + PADDING});
-                if (wallD === tx) rayVx *= -1; else rayVy *= -1;
-                currentLen += d;
-                if (currentLen >= 600) break;
+        let hit = null;
+        for (let b of balls) {
+            if (b === cueBall || b.inPocket) continue;
+            let dx = b.x - cueBall.x, dy = b.y - cueBall.y;
+            let dot = dx * rayVx + dy * rayVy;
+            if (dot <= 0) continue;
+            let perpDistSq = (dx*dx + dy*dy) - dot*dot;
+            if (perpDistSq < (BALL_R*2)*(BALL_R*2)) {
+                let d = dot - Math.sqrt((BALL_R*2)*(BALL_R*2) - perpDistSq);
+                if (d > 0 && (!hit || d < hit.dist)) hit = {dist: d, ball: b};
             }
         }
-        ctx.strokeStyle = 'rgba(255,255,255,0.3)';
-        ctx.setLineDash([8, 8]);
-        ctx.beginPath();
-        points.forEach((p, i) => { if(i === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y); });
-        ctx.stroke();
+
+        let tx = rayVx > 0 ? (TABLE_W - BALL_R - cueBall.x) / rayVx : (BALL_R - cueBall.x) / rayVx;
+        let ty = rayVy > 0 ? (TABLE_H - BALL_R - cueBall.y) / rayVy : (BALL_R - cueBall.y) / rayVy;
+        let wallD = Math.min(tx, ty);
+
+        let guideColor = 'rgba(255,255,255,0.3)';
+        let impactX, impactY;
+
+        if (hit && hit.dist < wallD) {
+            impactX = cueBall.x + rayVx * hit.dist;
+            impactY = cueBall.y + rayVy * hit.dist;
+            
+            let b = hit.ball;
+            let expectedType = nextTarget === 'red' ? 'red' : 'color';
+            let isFoulTarget = false;
+            if (!redsRemaining && typeof nextTarget === 'string' && nextTarget !== 'red' && nextTarget !== 'color') {
+                if (b.spotId !== nextTarget) isFoulTarget = true;
+            } else if (b.type !== expectedType) {
+                isFoulTarget = true;
+            }
+            if (isFoulTarget) guideColor = 'rgba(255, 0, 0, 0.5)';
+
+            ctx.setLineDash([5, 5]);
+            ctx.strokeStyle = guideColor;
+            ctx.beginPath();
+            ctx.moveTo(px, py);
+            ctx.lineTo(impactX + PADDING, impactY + PADDING);
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.arc(impactX + PADDING, impactY + PADDING, BALL_R, 0, Math.PI * 2);
+            ctx.stroke();
+
+            let objDx = hit.ball.x - impactX;
+            let objDy = hit.ball.y - impactY;
+            let objDist = Math.hypot(objDx, objDy);
+            let objVx = objDx / objDist;
+            let objVy = objDy / objDist;
+
+            ctx.setLineDash([]);
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+            ctx.beginPath();
+            ctx.moveTo(hit.ball.x + PADDING, hit.ball.y + PADDING);
+            ctx.lineTo(hit.ball.x + PADDING + objVx * 100, hit.ball.y + PADDING + objVy * 100);
+            ctx.stroke();
+
+            let tanVx = -objVy;
+            let tanVy = objVx;
+            if (tanVx * rayVx + tanVy * rayVy < 0) { tanVx *= -1; tanVy *= -1; }
+
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+            ctx.beginPath();
+            ctx.moveTo(impactX + PADDING, impactY + PADDING);
+            ctx.lineTo(impactX + PADDING + tanVx * 80, impactY + PADDING + tanVy * 80);
+            ctx.stroke();
+
+        } else {
+            impactX = cueBall.x + rayVx * Math.min(wallD, 400);
+            impactY = cueBall.y + rayVy * Math.min(wallD, 400);
+
+            ctx.setLineDash([5, 5]);
+            ctx.strokeStyle = guideColor;
+            ctx.beginPath();
+            ctx.moveTo(px, py);
+            ctx.lineTo(impactX + PADDING, impactY + PADDING);
+            ctx.stroke();
+
+            if (wallD < 400) {
+                let reflectVx = rayVx, reflectVy = rayVy;
+                if (wallD === tx) reflectVx *= -1; else reflectVy *= -1;
+                
+                ctx.beginPath();
+                ctx.moveTo(impactX + PADDING, impactY + PADDING);
+                ctx.lineTo(impactX + PADDING + reflectVx * 100, impactY + PADDING + reflectVy * 100);
+                ctx.stroke();
+            }
+        }
+        
         ctx.setLineDash([]);
-        let lastP = points[points.length-1];
-        if (lastP.ball) {
-            ctx.strokeStyle = 'rgba(255,255,255,0.4)';
-            ctx.beginPath(); ctx.arc(lastP.x, lastP.y, BALL_R, 0, Math.PI*2); ctx.stroke();
-        }
-        ctx.save(); ctx.translate(px, py); ctx.rotate(cueAngle + Math.PI);
+
+        ctx.save(); 
+        ctx.translate(px, py); 
+        ctx.rotate(cueAngle + Math.PI);
         const skin = SKINS[currentSkin];
         const pb = power * 0.8;
         ctx.fillStyle = skin.end; ctx.fillRect(pb + 24, -6, 380, 12);
@@ -604,11 +745,31 @@
         executeShot(angle, 7 + Math.random()*12);
     }
 
-    // Laraskan kekuatan bola mengikut bar kuasa (power)
     function executeShot(a, f) { 
+        if(f > 5) AudioEngine.playHit(0.3);
         cueBall.vx = Math.cos(a) * f; 
         cueBall.vy = Math.sin(a) * f; 
         isMoving = true; 
+    }
+
+    function setGameMode(m) {
+        gameMode = m;
+        document.querySelectorAll('[id^="mode-"]').forEach(btn => btn.classList.remove('active'));
+        document.getElementById(`mode-${m === 'vs-ai' ? 'ai' : 'player'}`).classList.add('active');
+        
+        const aiContainer = document.getElementById('ai-difficulty-container');
+        const p2Label = document.getElementById('p2-input-label');
+        const p2Input = document.getElementById('input-p2-name');
+
+        if (m === 'vs-player') {
+            aiContainer.style.display = 'none';
+            p2Label.innerText = "P2 NAME:";
+            if(p2Input.value === "AI") p2Input.value = "PLAYER 2";
+        } else {
+            aiContainer.style.display = 'block';
+            p2Label.innerText = "AI NAME:";
+            if(p2Input.value === "PLAYER 2") p2Input.value = "AI";
+        }
     }
 
     function setDifficulty(d) {
@@ -629,26 +790,31 @@
     }
 
     function updateUI() {
+        document.getElementById('p1-label-ui').innerText = playerNames.player;
+        document.getElementById('p2-label-ui').innerText = playerNames.ai;
         document.getElementById('player-score').innerText = scores.player;
         document.getElementById('ai-score').innerText = scores.ai;
         document.getElementById('break-info').innerText = `BREAK: ${currentBreak}`;
+        
         const ind = document.getElementById('turn-indicator');
-        ind.innerText = turn === 'player' ? 'GILIRAN ANDA' : 'GILIRAN AI';
-        ind.className = turn === 'player' ? 'text-pixel bg-blue-700 px-2 py-1 mb-2' : 'text-pixel bg-red-700 px-2 py-1 mb-2';
+        if (turn === 'player') {
+            ind.innerText = `${playerNames.player}'S TURN`;
+            ind.className = 'text-pixel bg-blue-700 px-2 py-1 mb-2';
+        } else {
+            ind.innerText = `${playerNames.ai}'S TURN`;
+            ind.className = 'text-pixel bg-red-700 px-2 py-1 mb-2';
+        }
         
         const targetText = document.getElementById('target-color-text');
         const colorName = nextTarget.toUpperCase();
         targetText.innerText = colorName;
-        
         if (nextTarget === 'red') {
             targetText.style.color = '#ff0000';
-            targetText.style.background = 'transparent';
-            targetText.style.padding = '0';
             targetText.style.textShadow = 'none';
         } else {
             const shadowColor = COLORS[nextTarget] || '#fff';
             targetText.style.color = shadowColor;
-            targetText.style.textShadow = `0 0 10px ${shadowColor}, 0 0 20px ${shadowColor}`;
+            targetText.style.textShadow = `0 0 10px ${shadowColor}`;
         }
     }
 
@@ -658,6 +824,7 @@
 
     canvas.onmousemove = (e) => {
         if (isPaused || gameEnded) return;
+        if (gameMode === 'vs-ai' && turn === 'ai' && !isPlacingCueBall) return;
         const rect = canvas.getBoundingClientRect();
         const mx = (e.clientX - rect.left) * (canvas.width / rect.width) - PADDING;
         const my = (e.clientY - rect.top) * (canvas.height / rect.height) - PADDING;
@@ -669,14 +836,15 @@
     };
 
     canvas.onmousedown = () => { 
-        if (!isMoving && !isPlacingCueBall && !isPaused && turn === 'player' && !gameEnded) isCharging = true; 
+        if (isPaused || gameEnded) return;
+        if (gameMode === 'vs-ai' && turn === 'ai' && !isPlacingCueBall) return;
+        if (!isMoving && !isPlacingCueBall) isCharging = true; 
         if (isPlacingCueBall) isPlacingCueBall = false; 
     };
     
     window.onmouseup = () => { 
         if (isCharging) { 
             isCharging = false; 
-            // Kekuatan minimum 3, maksimum 22 mengikut bar kuasa
             const shotStrength = 3 + (power / 5); 
             executeShot(cueAngle, shotStrength); 
             power = 0; 
@@ -684,11 +852,9 @@
         } 
     };
     
-    // Kelajuan pengisian bar kuasa (dulu +3, sekarang +1.5 untuk lebih perlahan)
     setInterval(() => { 
         if (isCharging) { 
             power = (power + 1.5);
-            // Bar akan patah balik ke 0 jika sampai 100 (atau boleh guna Math.min)
             if (power > 100) power = 0; 
             document.getElementById('power-fill').style.height = power + '%'; 
         } 
