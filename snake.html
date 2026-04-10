@@ -2,17 +2,18 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>My Life as a Snake - 3D Terrain</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>My Life as a Snake - Enhanced Forest</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
 
         body { 
             margin: 0; 
             overflow: hidden; 
-            background: #000; 
+            background: #87CEEB; 
             font-family: 'Press Start 2P', cursive;
             user-select: none;
+            touch-action: none;
         }
 
         #ui-layer {
@@ -34,24 +35,24 @@
             padding: 15px;
             display: inline-block;
             box-shadow: 4px 4px 0px #000;
+            pointer-events: auto;
         }
 
+        /* Compass */
         #compass-container {
             position: absolute;
             top: 20px;
             left: 50%;
             transform: translateX(-50%);
-            width: 300px;
-            height: 40px;
-            background: linear-gradient(to bottom, rgba(0,0,0,0.8), rgba(20,20,20,0.6));
+            width: 260px;
+            height: 34px;
+            background: rgba(0,0,0,0.8);
             border: 2px solid #a89160;
             overflow: hidden;
             display: flex;
             align-items: center;
             justify-content: center;
-            box-shadow: 0 0 10px rgba(0,0,0,0.5);
         }
-
         #compass-strip {
             position: absolute;
             display: flex;
@@ -59,16 +60,8 @@
             transition: transform 0.05s linear;
             color: #eee;
             font-size: 10px;
-            letter-spacing: 2px;
         }
-
-        .compass-mark {
-            display: inline-block;
-            width: 100px;
-            text-align: center;
-            position: relative;
-        }
-
+        .compass-mark { width: 100px; text-align: center; }
         .compass-center-marker {
             position: absolute;
             top: 0;
@@ -82,7 +75,7 @@
 
         #coord-text {
             position: absolute;
-            top: 65px;
+            top: 60px;
             left: 50%;
             transform: translateX(-50%);
             color: #fff;
@@ -90,61 +83,136 @@
             text-shadow: 1px 1px #000;
         }
 
-        .label { font-size: 10px; color: #4ade80; margin-bottom: 10px; }
-        
-        .bar-container {
-            width: 180px;
-            height: 12px;
-            background: #222;
-            border: 2px solid #555;
+        /* Stamina Bar */
+        .stamina-panel { position: absolute; top: 20px; left: 20px; pointer-events: none; }
+        .label { font-size: 10px; color: #4ade80; margin-bottom: 8px; }
+        .bar-container { width: 140px; height: 10px; background: #222; border: 2px solid #555; }
+        .bar-fill { height: 100%; width: 100%; transition: width 0.3s; background: #3b82f6; }
+
+        /* Radar */
+        #radar-panel { position: absolute; top: 20px; right: 20px; text-align: center; padding: 10px; }
+        #radar-canvas { width: 80px; height: 80px; background: rgba(0, 0, 0, 0.6); border: 2px solid #4ade80; display: block; }
+
+        /* Mobile Controls */
+        #touch-controls {
+            position: absolute;
+            bottom: 30px;
+            left: 0;
+            width: 100%;
+            height: 160px;
+            pointer-events: none;
+            display: flex;
+            justify-content: space-between;
+            padding: 0 40px;
+            box-sizing: border-box;
         }
+        .joystick-area {
+            width: 120px;
+            height: 120px;
+            background: rgba(255,255,255,0.1);
+            border: 3px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            position: relative;
+            pointer-events: auto;
+        }
+        #joystick-knob {
+            width: 50px;
+            height: 50px;
+            background: rgba(255,255,255,0.5);
+            border-radius: 50%;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+        .touch-btn {
+            width: 80px;
+            height: 80px;
+            background: rgba(255,255,255,0.15);
+            border: 3px solid rgba(255,255,255,0.4);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 10px;
+            pointer-events: auto;
+            margin-top: 20px;
+        }
+        .touch-btn:active { background: rgba(255,255,255,0.4); }
 
-        .bar-fill { height: 100%; width: 100%; transition: width 0.3s; }
-        #growth-fill { background: #3b82f6; } /* Blue for stamina */
-
-        #radar-panel {
+        /* Menus */
+        #pause-btn {
             position: absolute;
             top: 20px;
-            right: 20px;
-            text-align: center;
+            left: 50%;
+            transform: translateX(-50%);
+            margin-top: 60px;
+            padding: 8px 15px;
+            font-size: 10px;
+            cursor: pointer;
+            pointer-events: auto;
         }
 
-        #radar-canvas {
-            width: 100px;
-            height: 100px;
-            background: rgba(0, 0, 0, 0.6);
-            border: 2px solid #4ade80;
-            margin-top: 5px;
-            display: block;
+        #overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.7);
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            color: white;
+            visibility: hidden;
         }
+        #overlay.visible { visibility: visible; }
+        .menu-title { font-size: 24px; margin-bottom: 30px; color: #4ade80; }
+        .menu-btn {
+            width: 240px;
+            padding: 15px;
+            margin: 10px;
+            background: #333;
+            border: 4px solid #555;
+            color: white;
+            cursor: pointer;
+            text-align: center;
+            font-size: 12px;
+        }
+        .menu-btn:hover { background: #444; border-color: #4ade80; }
 
         #dialogue {
             position: absolute;
-            bottom: 50px;
+            bottom: 200px;
             left: 50%;
             transform: translateX(-50%);
             width: 80%;
             max-width: 500px;
             text-align: center;
             display: none;
-        }
-
-        #controls-hint {
-            position: absolute;
-            bottom: 20px;
-            right: 20px;
-            font-size: 8px;
-            color: #aaa;
-            line-height: 1.5;
-            text-align: right;
+            pointer-events: none;
         }
 
         #canvas-container { width: 100vw; height: 100vh; }
     </style>
 </head>
 <body>
+    <div id="overlay">
+        <div class="menu-title">PAUSED</div>
+        <div class="menu-btn" onclick="togglePause()">RESUME</div>
+        <div class="menu-btn" onclick="location.reload()">RESTART</div>
+        <div style="margin-top: 20px; font-size: 8px; color: #aaa; text-align: center; line-height: 1.6;">
+            A/D OR JOYSTICK TO TURN<br>
+            SPACE OR BUTTON TO JUMP<br>
+            S TO STOP
+        </div>
+    </div>
+
     <div id="ui-layer">
-        <div class="panel">
+        <div class="stamina-panel">
             <div class="label">STAMINA</div>
             <div class="bar-container">
                 <div id="growth-fill" class="bar-fill"></div>
@@ -157,131 +225,200 @@
         </div>
         <div id="coord-text">X: 0 | Z: 0</div>
 
+        <button id="pause-btn" class="panel" onclick="togglePause()">II PAUSE</button>
+
         <div id="radar-panel" class="panel">
-            <div class="label" style="font-size: 8px;">RADAR</div>
             <canvas id="radar-canvas" width="100" height="100"></canvas>
         </div>
 
+        <div id="touch-controls">
+            <div class="joystick-area" id="joystick-boundary">
+                <div id="joystick-knob"></div>
+            </div>
+            <div class="touch-btn" id="jump-btn">JUMP</div>
+        </div>
+
         <div id="dialogue" class="panel"></div>
-        <div id="controls-hint">A/D: TURN | S: BRAKE | SPACE: JUMP<br>COLLECT APPLES TO RESTORE</div>
     </div>
 
     <div id="canvas-container"></div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script>
-        /**
-         * CORE VARIABLES
-         */
-        let scene, camera, renderer, clock, radarCtx;
+        const WORLD_SIZE = 4000; 
+        const GRAVITY = -450; 
+        const JUMP_FORCE = 160; 
+        const SEGMENT_SPACING = 12.0; 
+        const MAX_PATH_LENGTH = 1200;
+        const ROTATION_SMOOTHING = 0.12; 
+
+        let scene, camera, renderer, clock, radarCtx, sun, amb;
         let snakeHead, segments = [], path = [];
         let apples = [], creatures = [], flowers = [];
-        let input = { left: false, right: false, stop: false };
+        let input = { left: false, right: false, stop: false, jump: false };
         
-        let matSnake, matWood, matApple, matLeaf, matStone;
+        let matSnake, matWood, matApple, matLeaf;
         let texGrass;
-        
+        const geoBox = new THREE.BoxGeometry(1, 1, 1);
+        let matFlowerStem, matFlowerCenter, matFlowerPetals = [];
+        let matAppleStem, matCreatures = {};
+
         let currentRotation = 0;
         let targetRotation = 0;
-        const ROTATION_SMOOTHING = 0.12; 
-        
         let stamina = 100;
         let yVelocity = 0;
         let isJumping = false;
         let cameraShake = 0;
-        
-        const WORLD_SIZE = 4000; 
-        const GRAVITY = -400; 
-        const JUMP_FORCE = 150; 
-        const SEGMENT_SPACING = 12.0; 
-        const MAX_PATH_LENGTH = 1200;
+        let isPaused = false;
 
-        /**
-         * TERRAIN GENERATION
-         */
-        function getTerrainHeight(x, z) {
-            const d = Math.sqrt(x*x + z*z);
-            let h = 0;
-            if (d < 800) h += Math.cos((d / 800) * Math.PI) * 150 + 150;
-            h += Math.sin(x * 0.01) * 20;
-            h += Math.cos(z * 0.015) * 20;
-            h += Math.sin((x + z) * 0.005) * 15;
-            return h;
+        let audioCtx = null;
+        let ambientGain = null;
+
+        // Joystick State
+        let joystickActive = false;
+        let joystickPos = { x: 0, y: 0 };
+        const joystickLimit = 50;
+
+        /** AUDIO */
+        function initAudio() {
+            if (audioCtx) return;
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            startAmbientForest();
         }
 
-        function generatePixelTexture(colors, size = 64) { 
-            const canvas = document.createElement('canvas');
-            canvas.width = size;
-            canvas.height = size;
-            const ctx = canvas.getContext('2d');
-            for(let x=0; x<size; x++) {
-                for(let y=0; y<size; y++) {
-                    ctx.fillStyle = colors[Math.floor(Math.random() * colors.length)];
-                    ctx.fillRect(x, y, 1, 1);
-                }
+        function startAmbientForest() {
+            const bufferSize = audioCtx.sampleRate * 2;
+            const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+            const data = buffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+
+            const noise = audioCtx.createBufferSource();
+            noise.buffer = buffer;
+            noise.loop = true;
+
+            const filter = audioCtx.createBiquadFilter();
+            filter.type = 'lowpass';
+            filter.frequency.value = 400;
+
+            ambientGain = audioCtx.createGain();
+            ambientGain.gain.value = 0.05;
+
+            noise.connect(filter);
+            filter.connect(ambientGain);
+            ambientGain.connect(audioCtx.destination);
+            noise.start();
+        }
+
+        function playAnimalSound(type) {
+            if (!audioCtx || isPaused) return;
+            const osc = audioCtx.createOscillator();
+            const g = audioCtx.createGain();
+            osc.connect(g);
+            g.connect(audioCtx.destination);
+            const now = audioCtx.currentTime;
+
+            if (type === 'sheep') {
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(150, now);
+                osc.frequency.exponentialRampToValueAtTime(100, now + 0.3);
+                g.gain.setValueAtTime(0, now);
+                g.gain.linearRampToValueAtTime(0.1, now + 0.05);
+                g.gain.linearRampToValueAtTime(0, now + 0.4);
+                osc.start(now); osc.stop(now + 0.4);
+            } else if (type === 'chicken') {
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(800, now);
+                osc.frequency.exponentialRampToValueAtTime(1200, now + 0.05);
+                g.gain.setValueAtTime(0, now);
+                g.gain.linearRampToValueAtTime(0.05, now + 0.02);
+                g.gain.linearRampToValueAtTime(0, now + 0.1);
+                osc.start(now); osc.stop(now + 0.1);
+            } else if (type === 'wolf') {
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(100, now);
+                osc.frequency.exponentialRampToValueAtTime(300, now + 0.5);
+                g.gain.linearRampToValueAtTime(0.08, now + 0.2);
+                g.gain.linearRampToValueAtTime(0, now + 1.2);
+                osc.start(now); osc.stop(now + 1.2);
+            } else {
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(400, now);
+                g.gain.linearRampToValueAtTime(0.05, now + 0.05);
+                g.gain.linearRampToValueAtTime(0, now + 0.2);
+                osc.start(now); osc.stop(now + 0.2);
             }
-            const tex = new THREE.CanvasTexture(canvas);
-            tex.magFilter = THREE.NearestFilter;
-            tex.minFilter = THREE.LinearMipmapLinearFilter;
-            tex.generateMipmaps = true;
-            return tex;
         }
 
+        /** ENGINE */
         function init() {
             scene = new THREE.Scene();
             clock = new THREE.Clock();
             radarCtx = document.getElementById('radar-canvas').getContext('2d');
 
             camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 1, 8000);
-            
-            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer = new THREE.WebGLRenderer({ antialias: false });
             renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.setPixelRatio(window.devicePixelRatio || 1); 
-            renderer.setClearColor(0x76b6c4); 
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            
+            const skyColor = new THREE.Color(0x87CEEB); 
+            renderer.setClearColor(skyColor);
+            scene.fog = new THREE.Fog(skyColor, 1500, 4500);
+
             document.getElementById('canvas-container').appendChild(renderer.domElement);
 
-            const sun = new THREE.DirectionalLight(0xfff4e0, 1.2); 
+            sun = new THREE.DirectionalLight(0xffffff, 1.2); 
             sun.position.set(400, 800, 400);
+            sun.castShadow = true;
+            sun.shadow.mapSize.width = 1024; // Lowered for better perf on mobile
+            sun.shadow.mapSize.height = 1024;
+            sun.shadow.camera.left = -1500; sun.shadow.camera.right = 1500;
+            sun.shadow.camera.top = 1500; sun.shadow.camera.bottom = -1500;
+            sun.shadow.bias = -0.001;
             scene.add(sun);
             
-            const amb = new THREE.AmbientLight(0xffffff, 0.6); 
+            amb = new THREE.AmbientLight(0xffffff, 0.6);
             scene.add(amb);
-
-            scene.fog = new THREE.Fog(0x76b6c4, 1500, 4000);
 
             texGrass = generatePixelTexture(['#3e4d10', '#4b5d16', '#5a6b1a', '#6a7d25', '#7b8c38'], 64);
             texGrass.wrapS = texGrass.wrapT = THREE.RepeatWrapping;
-            texGrass.repeat.set(100, 100);
+            texGrass.repeat.set(128, 128);
 
             matSnake = new THREE.MeshPhongMaterial({ color: 0x1d351a, flatShading: true });
             matWood = new THREE.MeshPhongMaterial({ color: 0x3d2b1f, flatShading: true });
             matApple = new THREE.MeshPhongMaterial({ color: 0x9e1a1a, flatShading: true });
             matLeaf = new THREE.MeshPhongMaterial({ color: 0x2d3e1a, flatShading: true }); 
-            matStone = new THREE.MeshPhongMaterial({ color: 0x444444, flatShading: true });
+            matFlowerStem = new THREE.MeshPhongMaterial({color: 0x228B22});
+            matFlowerCenter = new THREE.MeshPhongMaterial({color: 0xffaa00});
+            matAppleStem = new THREE.MeshPhongMaterial({color: 0x4b3621});
+            
+            [0xff5555, 0xffff55, 0x55ff55, 0xff55ff].forEach(c => matFlowerPetals.push(new THREE.MeshPhongMaterial({color: c})));
+            matCreatures = {
+                'sheep': new THREE.MeshPhongMaterial({color: 0xEEEEEE}),
+                'wolf': new THREE.MeshPhongMaterial({color: 0x777777}),
+                'chicken': new THREE.MeshPhongMaterial({color: 0xFFFFFF}),
+                'cat': new THREE.MeshPhongMaterial({color: 0xFFAA00})
+            };
 
-            const terrainGeo = new THREE.PlaneGeometry(WORLD_SIZE, WORLD_SIZE, 128, 128);
+            const terrainGeo = new THREE.PlaneGeometry(WORLD_SIZE, WORLD_SIZE, 100, 100);
             const vertices = terrainGeo.attributes.position.array;
-            for (let i = 0; i < vertices.length; i += 3) {
-                vertices[i + 2] = getTerrainHeight(vertices[i], -vertices[i+1]);
-            }
+            for (let i = 0; i < vertices.length; i += 3) vertices[i + 2] = getTerrainHeight(vertices[i], -vertices[i+1]);
             terrainGeo.computeVertexNormals();
             const floor = new THREE.Mesh(terrainGeo, new THREE.MeshPhongMaterial({ map: texGrass, shininess: 0 }));
             floor.rotation.x = -Math.PI / 2;
+            floor.receiveShadow = true;
             scene.add(floor);
 
-            // Removed physical borders creation
-
-            // Refined Snake Head
             snakeHead = new THREE.Group();
-            const headMesh = new THREE.Mesh(new THREE.BoxGeometry(9, 7.5, 12), matSnake);
+            const headMesh = new THREE.Mesh(geoBox, matSnake); headMesh.scale.set(9, 7.5, 12);
+            headMesh.castShadow = headMesh.receiveShadow = true;
             
-            const eyeGeo = new THREE.BoxGeometry(2, 2, 2);
             const eyeMat = new THREE.MeshBasicMaterial({color: 0x000000});
-            const eyeL = new THREE.Mesh(eyeGeo, eyeMat); eyeL.position.set(3.5, 2.5, 4);
-            const eyeR = new THREE.Mesh(eyeGeo, eyeMat); eyeR.position.set(-3.5, 2.5, 4);
-            
-            const tongue = new THREE.Mesh(new THREE.BoxGeometry(2, 0.5, 4), new THREE.MeshBasicMaterial({color: 0xff0000}));
-            tongue.position.set(0, -1, 7);
+            const eyeL = new THREE.Mesh(geoBox, eyeMat); eyeL.scale.set(2, 2, 2); eyeL.position.set(3.5, 2.5, 4);
+            const eyeR = new THREE.Mesh(geoBox, eyeMat); eyeR.scale.set(2, 2, 2); eyeR.position.set(-3.5, 2.5, 4);
+            const tongue = new THREE.Mesh(geoBox, new THREE.MeshBasicMaterial({color: 0xff0000}));
+            tongue.scale.set(2, 0.5, 4); tongue.position.set(0, -1, 7);
             
             snakeHead.add(headMesh, eyeL, eyeR, tongue);
             scene.add(snakeHead);
@@ -291,160 +428,141 @@
 
             populateGarden();
             initCompassUI();
+            initTouchHandlers();
 
-            window.addEventListener('keydown', e => handleKey(e.code, true));
+            window.addEventListener('keydown', e => {
+                initAudio();
+                if (e.code === 'Escape') togglePause();
+                handleKey(e.code, true);
+            });
             window.addEventListener('keyup', e => handleKey(e.code, false));
             window.addEventListener('resize', onResize);
 
-            notify("EXPLORE THE GARDEN.");
+            notify("TAP SCREEN OR PRESS ANY KEY TO START");
             loop();
         }
 
-        /**
-         * MODELS
-         */
-        function createFlowerModel() {
-            const group = new THREE.Group();
-            const colors = [0xff5555, 0xffff55, 0x55ff55, 0xff55ff];
-            const petalColor = colors[Math.floor(Math.random() * colors.length)];
-            const stem = new THREE.Mesh(new THREE.BoxGeometry(1.5, 10, 1.5), new THREE.MeshPhongMaterial({color: 0x228B22}));
-            stem.position.y = 5;
-            const center = new THREE.Mesh(new THREE.BoxGeometry(3, 3, 3), new THREE.MeshPhongMaterial({color: 0xffaa00}));
-            center.position.y = 10;
-            group.add(stem, center);
-            [[3,0], [-3,0], [0,3], [0,-3]].forEach(p => {
-                const petal = new THREE.Mesh(new THREE.BoxGeometry(3, 2, 3), new THREE.MeshPhongMaterial({color: petalColor}));
-                petal.position.set(p[0], 10, p[1]);
-                group.add(petal);
+        function togglePause() {
+            isPaused = !isPaused;
+            document.getElementById('overlay').className = isPaused ? 'visible' : '';
+            if (ambientGain) {
+                ambientGain.gain.setTargetAtTime(isPaused ? 0.01 : 0.05, audioCtx.currentTime, 0.2);
+            }
+        }
+
+        /** TOUCH CONTROLS */
+        function initTouchHandlers() {
+            const jBox = document.getElementById('joystick-boundary');
+            const jKnob = document.getElementById('joystick-knob');
+            const jumpBtn = document.getElementById('jump-btn');
+
+            const moveKnob = (e) => {
+                const touch = e.touches ? e.touches[0] : e;
+                const rect = jBox.getBoundingClientRect();
+                const centerX = rect.left + rect.width / 2;
+                const centerY = rect.top + rect.height / 2;
+                let dx = touch.clientX - centerX;
+                let dy = touch.clientY - centerY;
+                
+                const dist = Math.sqrt(dx*dx + dy*dy);
+                if (dist > joystickLimit) {
+                    dx = (dx / dist) * joystickLimit;
+                    dy = (dy / dist) * joystickLimit;
+                }
+
+                jKnob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+                joystickPos.x = dx / joystickLimit;
+                joystickPos.y = dy / joystickLimit;
+            };
+
+            jBox.addEventListener('touchstart', (e) => {
+                initAudio();
+                joystickActive = true;
+                moveKnob(e);
+            }, {passive: false});
+
+            window.addEventListener('touchmove', (e) => {
+                if (joystickActive) moveKnob(e);
+            }, {passive: false});
+
+            window.addEventListener('touchend', () => {
+                joystickActive = false;
+                joystickPos = { x: 0, y: 0 };
+                jKnob.style.transform = `translate(-50%, -50%)`;
             });
-            return group;
+
+            jumpBtn.addEventListener('touchstart', (e) => {
+                initAudio();
+                input.jump = true;
+                e.preventDefault();
+            });
+            jumpBtn.addEventListener('touchend', () => input.jump = false);
         }
 
-        function createAppleModel() {
-            const group = new THREE.Group();
-            const body = new THREE.Mesh(new THREE.BoxGeometry(5, 5, 5), matApple);
-            const stem = new THREE.Mesh(new THREE.BoxGeometry(1, 3, 1), new THREE.MeshPhongMaterial({color: 0x4b3621}));
-            stem.position.y = 3.5;
-            group.add(body, stem);
-            return group;
+        function getTerrainHeight(x, z) {
+            const d = Math.sqrt(x*x + z*z);
+            let h = 0;
+            if (d < 800) h += Math.cos((d / 800) * Math.PI) * 150 + 150;
+            h += Math.sin(x * 0.01) * 20 + Math.cos(z * 0.015) * 20;
+            return h;
         }
 
-        function createCatModel() {
-            const group = new THREE.Group();
-            const mat = new THREE.MeshPhongMaterial({color: 0xFFAA00});
-            const body = new THREE.Mesh(new THREE.BoxGeometry(6, 6, 12), mat);
-            body.position.y = 3;
-            const head = new THREE.Mesh(new THREE.BoxGeometry(6, 5, 5), mat);
-            head.position.set(0, 7, 6);
-            const tail = new THREE.Mesh(new THREE.BoxGeometry(2, 2, 8), mat);
-            tail.position.set(0, 6, -8); tail.rotation.x = 0.5;
-            const earL = new THREE.Mesh(new THREE.BoxGeometry(1.5, 2, 1), mat); earL.position.set(2, 9, 6);
-            const earR = new THREE.Mesh(new THREE.BoxGeometry(1.5, 2, 1), mat); earR.position.set(-2, 9, 6);
-            group.add(body, head, tail, earL, earR);
-            return group;
-        }
-
-        function createChickenModel() {
-            const group = new THREE.Group();
-            const mat = new THREE.MeshPhongMaterial({color: 0xFFFFFF});
-            const body = new THREE.Mesh(new THREE.BoxGeometry(6, 6, 8), mat);
-            body.position.y = 4;
-            const head = new THREE.Mesh(new THREE.BoxGeometry(3, 5, 3), mat);
-            head.position.set(0, 8, 4);
-            const beak = new THREE.Mesh(new THREE.BoxGeometry(3, 1.5, 2), new THREE.MeshPhongMaterial({color: 0xFFAA00}));
-            beak.position.set(0, 8, 6);
-            const comb = new THREE.Mesh(new THREE.BoxGeometry(1, 2, 2), new THREE.MeshPhongMaterial({color: 0xFF0000}));
-            comb.position.set(0, 11, 4);
-            group.add(body, head, beak, comb);
-            return group;
-        }
-
-        function createSheepModel() {
-            const group = new THREE.Group();
-            const mWool = new THREE.MeshPhongMaterial({color: 0xEEEEEE});
-            const mSkin = new THREE.MeshPhongMaterial({color: 0xDDBB99});
-            const body = new THREE.Mesh(new THREE.BoxGeometry(10, 10, 14), mWool);
-            body.position.y = 5;
-            const head = new THREE.Mesh(new THREE.BoxGeometry(6, 6, 6), mSkin);
-            head.position.set(0, 8, 8);
-            const legGeo = new THREE.BoxGeometry(2, 5, 2);
-            for(let x of [-3, 3]) for(let z of [-4, 4]) {
-                const leg = new THREE.Mesh(legGeo, mSkin);
-                leg.position.set(x, 0, z);
-                group.add(leg);
+        function generatePixelTexture(colors, size = 64) { 
+            const canvas = document.createElement('canvas');
+            canvas.width = canvas.height = size;
+            const ctx = canvas.getContext('2d');
+            for(let x=0; x<size; x++) {
+                for(let y=0; y<size; y++) {
+                    ctx.fillStyle = colors[Math.floor(Math.random() * colors.length)];
+                    ctx.fillRect(x, y, 1, 1);
+                }
             }
-            group.add(body, head);
-            return group;
-        }
-
-        function createWolfModel() {
-            const group = new THREE.Group();
-            const mat = new THREE.MeshPhongMaterial({color: 0x777777});
-            const darkMat = new THREE.MeshPhongMaterial({color: 0x444444});
-            const body = new THREE.Mesh(new THREE.BoxGeometry(7, 8, 16), mat);
-            body.position.y = 4;
-            const head = new THREE.Mesh(new THREE.BoxGeometry(6, 6, 6), mat);
-            head.position.set(0, 10, 8);
-            const snout = new THREE.Mesh(new THREE.BoxGeometry(4, 3, 5), mat);
-            snout.position.set(0, 9, 13);
-            const earL = new THREE.Mesh(new THREE.BoxGeometry(1.5, 3, 1.5), mat); earL.position.set(2, 13, 8);
-            const earR = new THREE.Mesh(new THREE.BoxGeometry(1.5, 3, 1.5), mat); earR.position.set(-2, 13, 8);
-            const tail = new THREE.Mesh(new THREE.BoxGeometry(3, 3, 8), darkMat);
-            tail.position.set(0, 8, -10); tail.rotation.x = -0.3;
-            const legGeo = new THREE.BoxGeometry(2, 4, 2);
-            for(let x of [-2.5, 2.5]) for(let z of [-5, 5]) {
-                const leg = new THREE.Mesh(legGeo, mat);
-                leg.position.set(x, 0, z);
-                group.add(leg);
-            }
-            group.add(body, head, snout, earL, earR, tail);
-            return group;
+            return new THREE.CanvasTexture(canvas);
         }
 
         function populateGarden() {
-            const limit = (WORLD_SIZE / 2) - 400;
-            // Trees
-            for(let i=0; i<60; i++) {
+            const limit = (WORLD_SIZE / 2) - 300;
+            // Simplified density for stability
+            for(let i=0; i<80; i++) {
                 const group = new THREE.Group();
-                const h = 80 + Math.random()*120;
-                const trunk = new THREE.Mesh(new THREE.BoxGeometry(15, h, 15), matWood);
-                trunk.position.y = h/2;
-                const foliage = new THREE.Mesh(new THREE.BoxGeometry(90, 40, 90), matLeaf);
-                foliage.position.y = h + 20;
+                const h = 60 + Math.random() * 100;
+                const trunk = new THREE.Mesh(geoBox, matWood);
+                trunk.scale.set(12, h, 12); trunk.position.y = h/2;
+                trunk.castShadow = true;
+                const foliage = new THREE.Mesh(geoBox, matLeaf);
+                foliage.scale.set(60, 50, 60); foliage.position.y = h + 20;
+                foliage.castShadow = true;
                 group.add(trunk, foliage);
                 const x = (Math.random()-0.5)*limit*2, z = (Math.random()-0.5)*limit*2;
                 group.position.set(x, getTerrainHeight(x, z), z);
                 scene.add(group);
             }
-            // Flowers
-            for(let i=0; i<150; i++) {
-                const flower = createFlowerModel();
+            for(let i=0; i<60; i++) {
+                const flower = new THREE.Group();
+                const stem = new THREE.Mesh(geoBox, matFlowerStem);
+                stem.scale.set(1.5, 10, 1.5); stem.position.y = 5;
+                flower.add(stem);
                 const x = (Math.random()-0.5)*limit*2, z = (Math.random()-0.5)*limit*2;
                 flower.position.set(x, getTerrainHeight(x, z), z);
                 scene.add(flower);
-                flowers.push(flower);
             }
-            // Apples
-            for(let i=0; i<60; i++) spawnApple();
-            // Animals
+            for(let i=0; i<40; i++) spawnApple();
             const types = ['cat', 'chicken', 'sheep', 'wolf'];
-            for(let i=0; i<60; i++) {
+            for(let i=0; i<25; i++) {
                 const type = types[Math.floor(Math.random()*types.length)];
-                let mesh;
-                if(type === 'cat') mesh = createCatModel();
-                else if(type === 'chicken') mesh = createChickenModel();
-                else if(type === 'sheep') mesh = createSheepModel();
-                else mesh = createWolfModel();
-                
+                const mesh = new THREE.Group();
+                const b = new THREE.Mesh(geoBox, matCreatures[type]); b.scale.set(8, 6, 12); b.position.y = 3; b.castShadow = true;
+                mesh.add(b);
                 const x = (Math.random()-0.5)*limit*2, z = (Math.random()-0.5)*limit*2;
                 mesh.position.set(x, getTerrainHeight(x, z), z);
                 scene.add(mesh);
-                creatures.push({ mesh, speed: type==='wolf'?120:type==='cat'?90:60, timer: Math.random()*5, state:'idle', type });
+                creatures.push({ mesh, speed: type==='wolf'?130:70, timer: Math.random()*5, state:'idle', type });
             }
         }
 
         function spawnApple() {
-            const apple = createAppleModel();
+            const apple = new THREE.Mesh(geoBox, matApple);
+            apple.scale.set(5, 5, 5); apple.castShadow = true;
             const limit = (WORLD_SIZE / 2) - 150;
             const x = (Math.random()-0.5)*limit*2, z = (Math.random()-0.5)*limit*2;
             apple.position.set(x, getTerrainHeight(x, z) + 4, z);
@@ -452,29 +570,31 @@
             apples.push(apple);
         }
 
-        /**
-         * GAME LOOP
-         */
         function loop() {
             requestAnimationFrame(loop);
+            if (isPaused) return;
+
             const delta = Math.min(clock.getDelta(), 0.05);
             const elapsed = clock.getElapsedTime();
+            
             updateSnake(delta, elapsed);
             updateCreatures(delta, elapsed);
             updateCamera();
             updateCompassUI();
             drawRadar();
+            
             renderer.render(scene, camera);
         }
 
         function updateSnake(dt, elapsed) {
-            if (input.left) targetRotation += 3.2 * dt;
-            if (input.right) targetRotation -= 3.2 * dt;
+            // Combined Keyboard + Joystick input
+            if (input.left || joystickPos.x < -0.3) targetRotation += 3.5 * dt;
+            if (input.right || joystickPos.x > 0.3) targetRotation -= 3.5 * dt;
+            
             currentRotation += (targetRotation - currentRotation) * ROTATION_SMOOTHING;
             
-            // Stamina drain
             if(!input.stop && stamina > 0) stamina -= 2.0 * dt;
-            const currentSpeed = (input.stop || stamina <= 0) ? 0 : 180;
+            const currentSpeed = (input.stop || stamina <= 0) ? 0 : 200;
             
             snakeHead.position.x += Math.sin(currentRotation) * currentSpeed * dt;
             snakeHead.position.z += Math.cos(currentRotation) * currentSpeed * dt;
@@ -483,27 +603,12 @@
             yVelocity += GRAVITY * dt;
             snakeHead.position.y += yVelocity * dt;
 
-            // Bouncing Invisible Forcefield Borders
-            const borderLimit = (WORLD_SIZE / 2) - 20;
-            let hitBorder = false;
-
-            if (Math.abs(snakeHead.position.x) > borderLimit) {
-                snakeHead.position.x = Math.sign(snakeHead.position.x) * (borderLimit - 5);
-                targetRotation += Math.PI * (0.9 + Math.random() * 0.2); // Reflect with variation
-                hitBorder = true;
-            }
-            if (Math.abs(snakeHead.position.z) > borderLimit) {
-                snakeHead.position.z = Math.sign(snakeHead.position.z) * (borderLimit - 5);
-                targetRotation += Math.PI * (0.9 + Math.random() * 0.2);
-                hitBorder = true;
-            }
-
-            if(hitBorder) {
-                cameraShake = 20;
-                notify("END OF WORLD REACHED");
-                // Flash the screen slightly or create a sound effect placeholder
-                renderer.setClearColor(0x9fc5ce);
-                setTimeout(() => renderer.setClearColor(0x76b6c4), 50);
+            const borderLimit = (WORLD_SIZE / 2) - 40;
+            if (Math.abs(snakeHead.position.x) > borderLimit || Math.abs(snakeHead.position.z) > borderLimit) {
+                snakeHead.position.x = Math.max(-borderLimit, Math.min(borderLimit, snakeHead.position.x));
+                snakeHead.position.z = Math.max(-borderLimit, Math.min(borderLimit, snakeHead.position.z));
+                targetRotation += Math.PI * 0.5;
+                cameraShake = 10;
             }
 
             const ground = getTerrainHeight(snakeHead.position.x, snakeHead.position.z) + 5;
@@ -513,35 +618,38 @@
                 isJumping = false; 
             }
 
+            if ((input.jump) && !isJumping) {
+                yVelocity = JUMP_FORCE;
+                isJumping = true;
+            }
+
             path.unshift({ x: snakeHead.position.x, y: snakeHead.position.y, z: snakeHead.position.z, r: currentRotation });
             if (path.length > MAX_PATH_LENGTH) path.pop();
 
-            // Eat Apples
-            for(let a of apples) {
+            for(let i = apples.length - 1; i >= 0; i--) {
+                const a = apples[i];
                 if (snakeHead.position.distanceTo(a.position) < 30) {
-                    const l = (WORLD_SIZE/2)-200;
-                    a.position.set((Math.random()-0.5)*l*2, 0, (Math.random()-0.5)*l*2);
-                    a.position.y = getTerrainHeight(a.position.x, a.position.z) + 4;
                     stamina = Math.min(100, stamina + 25);
-                    document.getElementById('growth-fill').style.width = stamina + '%';
+                    const limit = (WORLD_SIZE/2)-200;
+                    a.position.set((Math.random()-0.5)*limit*2, 0, (Math.random()-0.5)*limit*2);
+                    a.position.y = getTerrainHeight(a.position.x, a.position.z) + 4;
                 }
             }
+
             document.getElementById('growth-fill').style.width = stamina + '%';
 
-            // Update Segments
             const segmentCount = 12;
             let pathPtr = 1;
             for(let i = 0; i < segmentCount; i++) {
                 if (!segments[i]) {
-                    const sizeMult = Math.max(0.4, 1.0 - (i / 15));
-                    const geo = new THREE.BoxGeometry(8 * sizeMult, 6 * sizeMult, 10 * sizeMult);
-                    segments[i] = new THREE.Mesh(geo, matSnake);
-                    scene.add(segments[i]);
+                    const s = new THREE.Mesh(geoBox, matSnake);
+                    s.scale.set(8, 6, 10); s.castShadow = true;
+                    scene.add(s); segments[i] = s;
                 }
-                const prevTarget = (i === 0) ? snakeHead.position : segments[i-1].position;
+                const prev = (i === 0) ? snakeHead.position : segments[i-1].position;
                 while (pathPtr < path.length - 2) {
                     const p = path[pathPtr];
-                    const d = Math.sqrt((p.x-prevTarget.x)**2 + (p.z-prevTarget.z)**2);
+                    const d = Math.sqrt((p.x-prev.x)**2 + (p.z-prev.z)**2);
                     if (d >= SEGMENT_SPACING) {
                         segments[i].position.set(p.x, p.y, p.z);
                         segments[i].rotation.y = p.r; 
@@ -553,65 +661,45 @@
         }
 
         function updateCreatures(dt, elapsed) {
-            const limit = (WORLD_SIZE/2)-100;
             for(let c of creatures) {
                 c.timer -= dt;
                 if(c.timer < 0) {
                     c.state = Math.random() > 0.4 ? 'move' : 'idle';
-                    c.timer = 1 + Math.random() * 4;
-                    if(c.state === 'move') c.mesh.rotation.y = Math.random() * Math.PI * 2;
+                    c.timer = 3 + Math.random() * 5;
+                    if(c.state === 'move') {
+                        c.mesh.rotation.y = Math.random() * Math.PI * 2;
+                        if (Math.random() > 0.7 && snakeHead.position.distanceTo(c.mesh.position) < 400) playAnimalSound(c.type);
+                    }
                 }
-                
                 const groundY = getTerrainHeight(c.mesh.position.x, c.mesh.position.z);
-
                 if(c.state === 'move') {
                     c.mesh.position.x += Math.sin(c.mesh.rotation.y) * c.speed * dt;
                     c.mesh.position.z += Math.cos(c.mesh.rotation.y) * c.speed * dt;
-                    const hopSpeed = (c.type === 'chicken') ? 15 : 10;
-                    const hopHeight = (c.type === 'chicken') ? 5 : 3;
-                    c.mesh.position.y = groundY + Math.abs(Math.sin(elapsed * hopSpeed + c.mesh.position.x)) * hopHeight;
-                    c.mesh.rotation.x = Math.sin(elapsed * hopSpeed + c.mesh.position.x) * 0.1;
-                    if(Math.abs(c.mesh.position.x) > limit || Math.abs(c.mesh.position.z) > limit) c.mesh.rotation.y += Math.PI;
+                    c.mesh.position.y = groundY + Math.abs(Math.sin(elapsed * 8)) * 2;
                 } else {
                     c.mesh.position.y = groundY;
-                    c.mesh.rotation.x = 0;
-                    const s = 1.0 + Math.sin(elapsed * 2) * 0.02;
-                    c.mesh.scale.set(s, s, s);
                 }
             }
         }
 
         function drawRadar() {
             radarCtx.clearRect(0, 0, 100, 100);
-            const range = 600;
-            radarCtx.fillStyle = "rgba(0, 255, 0, 0.1)";
+            radarCtx.fillStyle = "rgba(74, 222, 128, 0.1)";
             radarCtx.beginPath(); radarCtx.arc(50, 50, 48, 0, Math.PI*2); radarCtx.fill();
-            radarCtx.fillStyle = "#4ade80";
-            radarCtx.beginPath(); radarCtx.arc(50, 50, 3, 0, Math.PI*2); radarCtx.fill();
+            radarCtx.strokeStyle = "#4ade80";
+            radarCtx.beginPath(); radarCtx.arc(50, 50, 48, 0, Math.PI*2); radarCtx.stroke();
             radarCtx.fillStyle = "#ffffff";
-            for(let c of creatures) {
-                const dx = (c.mesh.position.x - snakeHead.position.x) / range * 50;
-                const dz = (c.mesh.position.z - snakeHead.position.z) / range * 50;
-                if(Math.sqrt(dx*dx + dz*dz) < 48) radarCtx.fillRect(50 + dx - 1, 50 + dz - 1, 2, 2);
-            }
+            radarCtx.beginPath(); radarCtx.arc(50, 50, 3, 0, Math.PI*2); radarCtx.fill();
         }
 
         function updateCamera() {
-            const camDist = 200, camHeight = 150;
+            const camDist = 200, camHeight = 140;
             const targetX = snakeHead.position.x - Math.sin(currentRotation) * camDist;
             const targetZ = snakeHead.position.z - Math.cos(currentRotation) * camDist;
             
-            // Apply camera shake if any
-            let shakeX = 0, shakeY = 0;
-            if(cameraShake > 0) {
-                shakeX = (Math.random() - 0.5) * cameraShake;
-                shakeY = (Math.random() - 0.5) * cameraShake;
-                cameraShake *= 0.92; // Slightly slower decay for impact feel
-            }
-
-            camera.position.x += (targetX - camera.position.x) * 0.08 + shakeX;
-            camera.position.y += (snakeHead.position.y + camHeight - camera.position.y) * 0.08 + shakeY;
-            camera.position.z += (targetZ - camera.position.z) * 0.08;
+            camera.position.x += (targetX - camera.position.x) * 0.1;
+            camera.position.y += (snakeHead.position.y + camHeight - camera.position.y) * 0.1;
+            camera.position.z += (targetZ - camera.position.z) * 0.1;
             camera.lookAt(snakeHead.position.x, snakeHead.position.y + 10, snakeHead.position.z);
         }
 
@@ -619,7 +707,7 @@
             if(code==='KeyS'||code==='ArrowDown') input.stop = isPressed;
             if(code==='KeyA'||code==='ArrowLeft') input.left = isPressed;
             if(code==='KeyD'||code==='ArrowRight') input.right = isPressed;
-            if(code==='Space'&&isPressed&&!isJumping) { yVelocity = JUMP_FORCE; isJumping = true; }
+            if(code==='Space') input.jump = isPressed;
         }
 
         function initCompassUI() {
@@ -637,7 +725,7 @@
 
         function notify(t) {
             const e = document.getElementById('dialogue'); e.innerText=t; e.style.display='block';
-            setTimeout(() => { if(e.innerText===t) e.style.display='none'; }, 2000);
+            setTimeout(() => { if(e.innerText===t) e.style.display='none'; }, 3000);
         }
 
         function onResize() {
@@ -646,7 +734,7 @@
             renderer.setSize(window.innerWidth, window.innerHeight);
         }
 
-        init();
+        window.onload = init;
     </script>
 </body>
 </html>
