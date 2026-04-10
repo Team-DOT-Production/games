@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Overdrive - Apex Edition (Enhanced)</title>
+    <title>Overdrive - Apex Edition (Manual Trans)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@400;700;900&display=swap');
@@ -11,6 +11,7 @@
         body {
             margin: 0; padding: 0; background-color: #050505; color: white;
             font-family: 'Inter', sans-serif; overflow: hidden; touch-action: none;
+            user-select: none; -webkit-user-select: none;
         }
 
         #game-container {
@@ -20,44 +21,51 @@
         }
 
         .hud-glass {
-            background: rgba(0, 0, 0, 0.4);
-            backdrop-filter: blur(16px) saturate(180%);
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(16px);
             border: 1px solid rgba(255, 255, 255, 0.1);
             border-radius: 12px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.8);
         }
 
-        .nitro-container {
-            width: 200px; height: 8px; background: rgba(255,255,255,0.1);
-            border-radius: 4px; overflow: hidden; margin-top: 8px;
+        .nitro-bar {
+            width: 100%; height: 6px; background: rgba(255,255,255,0.1);
+            border-radius: 3px; overflow: hidden;
         }
 
         #nitro-fill {
             width: 0%; height: 100%;
             background: linear-gradient(90deg, #00f2ff, #0066ff);
-            box-shadow: 0 0 15px #00f2ff;
-            transition: width 0.1s ease-out;
+            box-shadow: 0 0 10px #00f2ff;
         }
 
-        .near-miss-pop {
-            position: absolute; color: #fbbf24; font-family: 'Orbitron';
-            font-weight: 900; pointer-events: none; animation: popUp 0.6s ease-out forwards;
-            z-index: 100; text-shadow: 0 0 10px rgba(251, 191, 36, 0.8);
+        /* Tachometer Styling */
+        .tacho-container {
+            width: 200px; height: 10px; background: rgba(255,255,255,0.1);
+            border-radius: 5px; position: relative; overflow: hidden;
         }
-
-        @keyframes popUp {
-            0% { transform: scale(0.5) translateY(0); opacity: 0; }
-            50% { transform: scale(1.2) translateY(-40px); opacity: 1; }
-            100% { transform: scale(1) translateY(-60px); opacity: 0; }
+        #rpm-fill {
+            width: 0%; height: 100%;
+            background: linear-gradient(90deg, #22c55e 0%, #eab308 70%, #ef4444 90%);
+            transition: width 0.05s linear;
         }
+        .redline-blink { animation: blink 0.1s infinite; }
+        @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.3; } }
 
-        .btn-primary {
-            background: linear-gradient(135deg, #ff0044 0%, #990022 100%);
-            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+        .touch-zone {
+            position: absolute; bottom: 30px; z-index: 40;
+            display: flex; justify-content: space-between; width: 100%; padding: 0 20px;
+            pointer-events: none;
         }
-
-        .btn-primary:hover { transform: scale(1.05) translateY(-2px); box-shadow: 0 0 30px rgba(255, 0, 68, 0.5); }
+        .control-btn {
+            pointer-events: auto; width: 65px; height: 65px;
+            border-radius: 50%; background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(5px); border: 1px solid rgba(255,255,255,0.2);
+            display: flex; flex-direction: column; items-center; justify-content: center;
+            transition: transform 0.1s; text-align: center;
+        }
+        .control-btn:active { background: rgba(255,255,255,0.3); transform: scale(0.9); }
+        .gear-btn { background: rgba(234, 179, 8, 0.2); border-color: #eab308; }
+        .nitro-btn { background: rgba(0, 242, 255, 0.2); border-color: #00f2ff; }
     </style>
 </head>
 <body>
@@ -65,355 +73,368 @@
 <div id="game-container">
     <canvas id="gameCanvas"></canvas>
     
-    <div class="absolute top-6 left-6 hud-glass p-5 z-20 min-w-[220px]">
-        <div class="flex justify-between items-center mb-1">
-            <span class="text-[10px] uppercase tracking-[0.3em] text-red-500 font-black">Score</span>
-            <span id="hi-score-label" class="text-[9px] uppercase text-gray-500 font-bold">BEST: 000000</span>
-        </div>
-        <div id="score" class="text-4xl font-black tracking-tighter font-['Orbitron']">000000</div>
-        
-        <div class="mt-4 flex items-end justify-between">
-            <div>
-                <div class="text-[10px] uppercase tracking-widest text-cyan-400 font-black">Nitro</div>
-                <div class="nitro-container"><div id="nitro-fill"></div></div>
+    <!-- TOP HUD -->
+    <div class="absolute top-4 left-4 right-4 flex justify-between items-start z-20 pointer-events-none">
+        <div class="hud-glass p-4 min-w-[140px]">
+            <div class="text-[9px] uppercase tracking-widest text-red-500 font-black mb-1">Score</div>
+            <div id="score" class="text-3xl font-black font-['Orbitron']">000000</div>
+            <div class="mt-3">
+                <div class="flex justify-between text-[8px] font-black uppercase text-cyan-400 mb-1">
+                    <span>Nitro</span>
+                    <span id="nitro-percent">60%</span>
+                </div>
+                <div class="nitro-bar"><div id="nitro-fill"></div></div>
             </div>
-            <div id="speedo" class="text-2xl font-black italic text-right font-['Orbitron']">0</div>
+        </div>
+        
+        <div class="hud-glass p-4 text-center min-w-[120px]">
+            <div id="gear-display" class="text-5xl font-black text-white font-['Orbitron']">N</div>
+            <div class="text-[10px] text-yellow-500 font-bold uppercase tracking-tighter">Gear</div>
+        </div>
+
+        <div class="hud-glass p-4 text-right">
+            <div id="speedo" class="text-4xl font-black italic font-['Orbitron'] text-white">0</div>
+            <div class="text-[10px] text-gray-400 font-bold uppercase">km/h</div>
+            <div class="mt-3">
+                <div class="tacho-container"><div id="rpm-fill"></div></div>
+            </div>
         </div>
     </div>
 
-    <div id="start-menu" class="absolute inset-0 flex flex-col items-center justify-center z-50 bg-black/60 backdrop-blur-md">
-        <h1 class="text-8xl font-black italic tracking-tighter text-white mb-2" style="text-shadow: 0 0 40px rgba(255,0,0,0.4)">OVERDRIVE</h1>
-        <p class="text-red-500 tracking-[0.5em] font-bold uppercase text-xs mb-12">Next-Gen Arcade Racing</p>
-        <button class="btn-primary px-12 py-4 rounded-full font-black uppercase tracking-widest text-lg" onclick="initAndStart()">Launch Engine</button>
-        <div class="mt-8 text-gray-400 text-[10px] uppercase tracking-widest flex gap-8">
+    <!-- TOUCH CONTROLS -->
+    <div id="touch-controls" class="touch-zone hidden">
+        <div class="flex gap-3">
+            <div id="btn-left" class="control-btn"><span class="font-black">L</span></div>
+            <div id="btn-right" class="control-btn"><span class="font-black">R</span></div>
+        </div>
+        <div class="flex gap-3">
+            <div id="btn-down" class="control-btn gear-btn"><span class="text-[10px] font-black">SHIFT</span><span class="text-xl font-bold">−</span></div>
+            <div id="btn-up" class="control-btn gear-btn"><span class="text-[10px] font-black">SHIFT</span><span class="text-xl font-bold">+</span></div>
+            <div id="btn-nitro" class="control-btn nitro-btn"><span class="text-[10px] font-black">NITRO</span></div>
+        </div>
+    </div>
+
+    <!-- START MENU -->
+    <div id="start-menu" class="absolute inset-0 flex flex-col items-center justify-center z-50 bg-black/70 backdrop-blur-md px-6 text-center">
+        <h1 class="text-7xl font-black italic tracking-tighter text-white mb-2">OVERDRIVE</h1>
+        <p class="text-red-500 tracking-[0.3em] font-bold uppercase text-xs mb-10">Manual Transmission / Louder Stututu</p>
+        <button class="bg-red-600 hover:bg-red-500 px-12 py-4 rounded-full font-black uppercase tracking-widest text-lg transition-all" onclick="initAndStart()">Ignition</button>
+        <div class="mt-8 text-gray-400 text-[10px] uppercase tracking-widest hidden md:grid grid-cols-2 gap-4">
+            <span>[Q/E] Shift Down/Up</span>
             <span>[WASD] Drive</span>
             <span>[SHIFT] Nitro</span>
             <span>[SPACE] Brake</span>
         </div>
     </div>
 
-    <div id="game-over" class="hidden absolute inset-0 flex flex-col items-center justify-center z-50 bg-black/80 backdrop-blur-xl">
-        <h2 class="text-6xl font-black italic text-red-600 mb-2">CRITICAL WRECK</h2>
+    <!-- GAME OVER -->
+    <div id="game-over" class="hidden absolute inset-0 flex flex-col items-center justify-center z-50 bg-black/90 backdrop-blur-xl">
+        <h2 class="text-5xl font-black italic text-red-600 mb-2">WRECKED</h2>
         <p id="final-score" class="text-2xl font-['Orbitron'] mb-12">SCORE: 000000</p>
-        <button class="btn-primary px-12 py-4 rounded-full font-black uppercase tracking-widest" onclick="startGame()">Try Again</button>
+        <button class="bg-white text-black px-12 py-4 rounded-full font-black uppercase tracking-widest" onclick="startGame()">Try Again</button>
     </div>
 </div>
 
 <script>
+    /** AUDIO ENGINE **/
+    class EngineSound {
+        constructor() {
+            this.ctx = null;
+            this.osc = null;
+            this.gain = null;
+            this.turboGain = null;
+            this.turboOsc = null;
+            this.isBlowing = false;
+        }
+        init() {
+            if (this.ctx) return;
+            this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+            this.osc = this.ctx.createOscillator();
+            this.osc.type = 'sawtooth';
+            this.gain = this.ctx.createGain();
+            this.lowPass = this.ctx.createBiquadFilter();
+            this.lowPass.type = 'lowpass';
+            this.turboOsc = this.ctx.createOscillator();
+            this.turboOsc.type = 'sine';
+            this.turboGain = this.ctx.createGain();
+            this.osc.connect(this.lowPass);
+            this.lowPass.connect(this.gain);
+            this.gain.connect(this.ctx.destination);
+            this.turboOsc.connect(this.turboGain);
+            this.turboGain.connect(this.ctx.destination);
+            this.osc.start();
+            this.turboOsc.start();
+            this.gain.gain.value = 0.1;
+            this.turboGain.gain.value = 0;
+        }
+        update(rpm, isNitro, isBouncing) {
+            if (!this.ctx) return;
+            let freq = 30 + (rpm * 0.02);
+            if (isBouncing) freq *= 0.95; // Rev limiter sound
+            this.osc.frequency.setTargetAtTime(freq, this.ctx.currentTime, 0.05);
+            this.lowPass.frequency.setTargetAtTime(400 + (rpm * 0.2), this.ctx.currentTime, 0.1);
+            if (rpm > 4000) {
+                this.turboOsc.frequency.setTargetAtTime(800 + (rpm * 0.1), this.ctx.currentTime, 0.1);
+                this.turboGain.gain.setTargetAtTime(isNitro ? 0.12 : 0.05, this.ctx.currentTime, 0.2);
+            } else {
+                this.turboGain.gain.setTargetAtTime(0, this.ctx.currentTime, 0.1);
+            }
+        }
+        stututu(intensity = 1) {
+            if (!this.ctx || this.isBlowing || intensity < 0.2) return;
+            this.isBlowing = true;
+            const now = this.ctx.currentTime;
+            // Increased number of pulses and volume for "Louder Stututu"
+            for(let i=0; i<6; i++) {
+                const startTime = now + (i * 0.08);
+                const blowGain = this.ctx.createGain();
+                const noise = this.ctx.createBufferSource();
+                const buffer = this.ctx.createBuffer(1, this.ctx.sampleRate * 0.15, this.ctx.sampleRate);
+                const data = buffer.getChannelData(0);
+                for (let j = 0; j < data.length; j++) data[j] = Math.random() * 2 - 1;
+                noise.buffer = buffer;
+                
+                const filter = this.ctx.createBiquadFilter();
+                filter.type = 'bandpass'; 
+                filter.frequency.value = 2200 - (i * 250);
+                filter.Q.value = 1.5;
+
+                noise.connect(filter); 
+                filter.connect(blowGain); 
+                blowGain.connect(this.ctx.destination);
+
+                // Higher base gain for louder volume
+                const volume = (0.4 * intensity) / (1 + i * 0.5); 
+                blowGain.gain.setValueAtTime(volume, startTime);
+                blowGain.gain.exponentialRampToValueAtTime(0.01, startTime + 0.12);
+                
+                noise.start(startTime);
+                noise.stop(startTime + 0.15);
+            }
+            setTimeout(() => { this.isBlowing = false; }, 800);
+        }
+    }
+
+    const engine = new EngineSound();
+
+    /** GAME DATA **/
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
-    const scoreEl = document.getElementById('score');
-    const hiScoreLabel = document.getElementById('hi-score-label');
-    const nitroFill = document.getElementById('nitro-fill');
-    const speedoEl = document.getElementById('speedo');
-    const startMenu = document.getElementById('start-menu');
-    const gameOverMenu = document.getElementById('game-over');
-
-    let LANE_COUNT = 4, LANE_WIDTH;
-    const MAX_SPEED = 30, NITRO_SPEED = 48, ACCEL = 0.2, FRICTION = 0.08;
+    const gearEl = document.getElementById('gear-display');
+    const rpmFill = document.getElementById('rpm-fill');
     
-    let gameActive = false, score = 0, hiScore = localStorage.getItem('hiScore') || 0;
-    let distance = 0, gameSpeed = 0, nitroAmount = 40;
-    let player, traffic = [], particles = [], frameCount = 0, shake = 0;
-    let keys = {};
+    let gameActive = false, score = 0, distance = 0, gameSpeed = 0;
+    let nitroAmount = 60, frameCount = 0, traffic = [], particles = [];
+    let keys = {}, touchState = {};
 
-    hiScoreLabel.innerText = `BEST: ${hiScore.toString().padStart(6, '0')}`;
+    // Physics & Transmission
+    let currentGear = 0; 
+    let rpm = 800;
+    const MAX_RPM = 8500;
+    const REDLINE = 7500;
+    const MAX_SPEEDS = [0, 35, 75, 130, 190, 260, 340]; 
 
     function resize() {
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
-        LANE_WIDTH = canvas.width / LANE_COUNT;
-        if(player) player.y = canvas.height - 180;
     }
     window.addEventListener('resize', resize);
     resize();
 
-    window.addEventListener('keydown', e => keys[e.code] = true);
-    window.addEventListener('keyup', e => keys[e.code] = false);
+    // Inputs
+    window.addEventListener('keydown', e => {
+        if(e.code === 'KeyE') shiftUp();
+        if(e.code === 'KeyQ') shiftDown();
+        keys[e.code] = true;
+    });
+    
+    window.addEventListener('keyup', e => {
+        keys[e.code] = false;
+        // Trigger stututu based on RPM when releasing gas
+        if(e.code === 'KeyW' || e.code === 'ArrowUp') {
+            const intensity = (rpm - 3000) / (MAX_RPM - 3000);
+            engine.stututu(intensity);
+        }
+    });
 
-    function drawRoundedRect(ctx, x, y, w, h, r) {
-        ctx.beginPath();
-        ctx.roundRect(x, y, w, h, r);
-        ctx.fill();
+    const setupTouch = (id, action) => {
+        const el = document.getElementById(id);
+        el.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            if(action === 'up') shiftUp();
+            else if(action === 'down') shiftDown();
+            else touchState[action] = true;
+            engine.init();
+        });
+        el.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            if(action === 'accel' || action === 'w') { // assuming touch accel mapping
+                 const intensity = (rpm - 3000) / (MAX_RPM - 3000);
+                 engine.stututu(intensity);
+            }
+            touchState[action] = false;
+        });
+    };
+    setupTouch('btn-left', 'left'); setupTouch('btn-right', 'right');
+    setupTouch('btn-up', 'up'); setupTouch('btn-down', 'down');
+    setupTouch('btn-nitro', 'nitro');
+
+    function updateGearUI() {
+        gearEl.innerText = currentGear === 0 ? "N" : currentGear;
+    }
+
+    function shiftUp() {
+        if(currentGear < 6) {
+            const oldRpm = rpm;
+            currentGear++;
+            if (currentGear === 1) rpm *= 0.5;
+            else rpm *= 0.7;
+            updateGearUI();
+            // Shift stututu
+            const intensity = (oldRpm - 3000) / (MAX_RPM - 3000);
+            engine.stututu(intensity);
+        }
+    }
+    function shiftDown() {
+        if(currentGear > 0) {
+            currentGear--;
+            if (currentGear > 0) {
+                rpm = Math.min(MAX_RPM, rpm * 1.4);
+            }
+            updateGearUI();
+        }
     }
 
     class Vehicle {
         constructor(x, y, color) {
             this.w = 56; this.h = 104; this.x = x; this.y = y; this.color = color;
-            this.nearMissed = false;
         }
-
-        draw(ctx, tilt = 0, isPlayer = false, braking = false) {
+        draw(ctx, tilt = 0, isPlayer = false) {
             ctx.save();
             ctx.translate(this.x + this.w/2, this.y + this.h/2);
             ctx.rotate(tilt);
-
-            // Cahaya Lampu Depan (Headlight Beams)
-            if (isPlayer) {
-                const beamGrad = ctx.createLinearGradient(0, -this.h/2, 0, -this.h/2 - 300);
-                beamGrad.addColorStop(0, 'rgba(255, 255, 220, 0.4)');
-                beamGrad.addColorStop(1, 'rgba(255, 255, 220, 0)');
-                
-                ctx.fillStyle = beamGrad;
-                ctx.beginPath();
-                ctx.moveTo(-20, -this.h/2);
-                ctx.lineTo(-80, -this.h/2 - 300);
-                ctx.lineTo(80, -this.h/2 - 300);
-                ctx.lineTo(20, -this.h/2);
-                ctx.fill();
-            }
-
-            // Shadow
-            ctx.fillStyle = 'rgba(0,0,0,0.4)';
-            drawRoundedRect(ctx, -this.w/2 + 8, -this.h/2 + 8, this.w, this.h, 12);
-
-            // Body
-            const grad = ctx.createLinearGradient(-this.w/2, 0, this.w/2, 0);
-            grad.addColorStop(0, this.color.dark);
-            grad.addColorStop(0.5, this.color.main);
-            grad.addColorStop(1, this.color.dark);
-            ctx.fillStyle = grad;
-            drawRoundedRect(ctx, -this.w/2, -this.h/2, this.w, this.h, 12);
-
-            // AI Signals
-            if (!isPlayer && this.signalDir !== 0) {
-                if (Math.floor(frameCount / 15) % 2 === 0) {
-                    ctx.shadowBlur = 15; ctx.shadowColor = '#fbbf24';
-                    ctx.fillStyle = '#fbbf24';
-                    const sigX = this.signalDir === -1 ? -this.w/2 + 5 : this.w/2 - 15;
-                    ctx.fillRect(sigX, this.h/2 - 10, 10, 5); // Belakang
-                    ctx.fillRect(sigX, -this.h/2 + 5, 10, 5); // Depan
-                    ctx.shadowBlur = 0;
-                }
-            }
-
-            // Windows
-            ctx.fillStyle = '#0a0b0d';
-            drawRoundedRect(ctx, -this.w/2 + 8, -this.h/2 + 25, this.w - 16, 25, 4);
-
-            // Headlights
-            ctx.shadowBlur = isPlayer ? 20 : 0; ctx.shadowColor = '#fff9e6';
-            ctx.fillStyle = '#fff9e6';
-            ctx.beginPath();
-            ctx.arc(-this.w/2 + 12, -this.h/2 + 8, 6, 0, Math.PI*2);
-            ctx.arc(this.w/2 - 12, -this.h/2 + 8, 6, 0, Math.PI*2);
-            ctx.fill();
-            ctx.shadowBlur = 0;
-
-            // Tail Lights
-            const brakeGlow = braking || (!isPlayer && gameSpeed < 5);
-            ctx.fillStyle = brakeGlow ? '#ff0000' : '#440000';
-            if(brakeGlow) { ctx.shadowBlur = 15; ctx.shadowColor = '#ff0000'; }
-            ctx.fillRect(-this.w/2 + 6, this.h/2 - 10, 14, 6);
-            ctx.fillRect(this.w/2 - 20, this.h/2 - 10, 14, 6);
-
+            ctx.fillStyle = 'rgba(0,0,0,0.3)';
+            ctx.roundRect(-this.w/2+5, -this.h/2+5, this.w, this.h, 10); ctx.fill();
+            ctx.fillStyle = this.color;
+            ctx.beginPath(); ctx.roundRect(-this.w/2, -this.h/2, this.w, this.h, 10); ctx.fill();
+            ctx.fillStyle = '#111';
+            ctx.fillRect(-this.w/2+8, -this.h/2+20, this.w-16, 25);
+            ctx.fillStyle = '#fff';
+            ctx.beginPath(); ctx.arc(-this.w/2+12, -this.h/2+8, 5, 0, 7); ctx.fill();
+            ctx.beginPath(); ctx.arc(this.w/2-12, -this.h/2+8, 5, 0, 7); ctx.fill();
             ctx.restore();
         }
     }
 
-    class Player extends Vehicle {
-        constructor() {
-            super(canvas.width / 2 - 28, canvas.height - 180, { main: '#ff0044', dark: '#660011' });
-            this.steer = 0; this.tilt = 0;
-        }
-
-        update() {
-            const isNitro = keys['ShiftLeft'] && nitroAmount > 0 && gameSpeed > 5;
-            const currentMax = isNitro ? NITRO_SPEED : MAX_SPEED;
-
-            if (keys['KeyA'] || keys['ArrowLeft']) {
-                this.steer = Math.max(this.steer - 1.5, -12);
-                this.tilt = Math.max(this.tilt - 0.04, -0.2);
-            } else if (keys['KeyD'] || keys['ArrowRight']) {
-                this.steer = Math.min(this.steer + 1.5, 12);
-                this.tilt = Math.min(this.tilt + 0.04, 0.2);
-            } else {
-                this.steer *= 0.85; this.tilt *= 0.85;
-            }
-
-            this.x += this.steer;
-            this.x = Math.max(20, Math.min(canvas.width - this.w - 20, this.x));
-
-            if (keys['KeyW'] || keys['ArrowUp'] || isNitro) {
-                gameSpeed += isNitro ? 0.4 : ACCEL;
-            } else if (keys['KeyS'] || keys['ArrowDown'] || keys['Space']) {
-                gameSpeed -= 0.6;
-            } else {
-                gameSpeed -= FRICTION;
-            }
-
-            gameSpeed = Math.max(0, Math.min(currentMax, gameSpeed));
-            if (isNitro) {
-                nitroAmount -= 0.6;
-                shake = 4;
-                if (frameCount % 2 === 0) particles.push(new Particle(this.x + this.w/2, this.y + this.h, '#00f2ff', 8, (Math.random()-0.5)*5, 10));
-            } else {
-                shake = (gameSpeed / MAX_SPEED) * 1.5;
-            }
-            
-            nitroAmount = Math.min(100, nitroAmount + 0.05);
-            nitroFill.style.width = `${nitroAmount}%`;
-        }
-    }
-
-    class Obstacle extends Vehicle {
-        constructor(lane) {
-            const colors = [
-                { main: '#3b82f6', dark: '#1d4ed8' }, 
-                { main: '#10b981', dark: '#064e3b' },
-                { main: '#f59e0b', dark: '#78350f' }
-            ];
-            super((lane * LANE_WIDTH) + (LANE_WIDTH/2) - 28, -200, colors[Math.floor(Math.random()*3)]);
-            this.lane = lane;
-            this.speed = 4 + Math.random() * 6;
-            this.targetX = this.x;
-            this.signalDir = 0; // -1: Left, 1: Right
-            this.changeTimer = Math.random() * 200 + 100;
-        }
-
-        update() {
-            this.y += (gameSpeed - this.speed);
-
-            // AI Lane Changing Logic
-            this.changeTimer--;
-            if (this.changeTimer <= 0) {
-                const canGoLeft = this.lane > 0;
-                const canGoRight = this.lane < LANE_COUNT - 1;
-                
-                if (this.signalDir === 0) {
-                    this.signalDir = Math.random() > 0.5 ? (canGoRight ? 1 : -1) : (canGoLeft ? -1 : 1);
-                    this.changeTimer = 60; // Masa signal sebelum tukar lane
-                } else {
-                    this.lane += this.signalDir;
-                    this.targetX = (this.lane * LANE_WIDTH) + (LANE_WIDTH/2) - 28;
-                    this.signalDir = 0;
-                    this.changeTimer = Math.random() * 300 + 200;
-                }
-            }
-
-            // Smooth movement to target lane
-            this.x += (this.targetX - this.x) * 0.05;
-        }
-    }
-
-    class Particle {
-        constructor(x, y, color, size, vx, vy) {
-            this.x = x; this.y = y; this.color = color; this.size = size;
-            this.vx = vx; this.vy = vy; this.life = 1.0;
-        }
-        update() { this.x += this.vx; this.y += this.vy; this.life -= 0.02; }
-        draw(ctx) {
-            ctx.globalAlpha = this.life; ctx.fillStyle = this.color;
-            ctx.beginPath(); ctx.arc(this.x, this.y, this.size, 0, Math.PI*2); ctx.fill();
-            ctx.globalAlpha = 1;
-        }
-    }
-
-    function createNearMiss(x, y) {
-        const div = document.createElement('div');
-        div.className = 'near-miss-pop';
-        div.style.left = x + 'px';
-        div.style.top = y + 'px';
-        div.innerText = 'NEAR MISS +500';
-        document.getElementById('game-container').appendChild(div);
-        setTimeout(() => div.remove(), 700);
-    }
-
-    function drawEnvironment() {
-        const timeCycle = (distance / 50) % 2000;
-        let bg;
-        if (timeCycle < 800) bg = '#111';
-        else if (timeCycle < 1000) bg = '#2d1b2d';
-        else if (timeCycle < 1600) bg = '#050508';
-        else bg = '#1e293b';
-        
-        ctx.fillStyle = bg;
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-        ctx.setLineDash([60, 100]);
-        ctx.lineDashOffset = -distance;
-        ctx.strokeStyle = 'rgba(255,255,255,0.15)';
-        ctx.lineWidth = 4;
-        for(let i=1; i<LANE_COUNT; i++) {
-            ctx.beginPath(); ctx.moveTo(i * LANE_WIDTH, 0); ctx.lineTo(i * LANE_WIDTH, canvas.height); ctx.stroke();
-        }
-        ctx.setLineDash([]);
-    }
-
     function startGame() {
-        gameActive = true; score = 0; distance = 0; gameSpeed = 0; nitroAmount = 50;
+        gameActive = true; score = 0; distance = 0; gameSpeed = 0; currentGear = 0; rpm = 800;
         traffic = []; particles = [];
-        player = new Player();
-        startMenu.classList.add('hidden');
-        gameOverMenu.classList.add('hidden');
+        playerX = canvas.width / 2 - 28;
+        document.getElementById('start-menu').classList.add('hidden');
+        document.getElementById('game-over').classList.add('hidden');
+        document.getElementById('touch-controls').classList.remove('hidden');
+        updateGearUI();
         requestAnimationFrame(gameLoop);
     }
 
-    function initAndStart() { startGame(); }
+    function initAndStart() { engine.init(); startGame(); }
+
+    let playerX, playerTilt = 0;
 
     function gameLoop() {
         if (!gameActive) return;
 
-        ctx.save();
-        if (shake > 0) ctx.translate((Math.random()-0.5)*shake, (Math.random()-0.5)*shake);
-        
-        drawEnvironment();
-        frameCount++;
-        distance += gameSpeed;
+        const isAccelerating = keys['KeyW'] || keys['ArrowUp'] || (window.innerWidth < 768 && !keys['Space'] && !touchState.brake);
+        const isNitro = (keys['ShiftLeft'] || touchState.nitro) && nitroAmount > 1 && currentGear > 0;
+        const isBraking = keys['Space'] || keys['KeyS'] || touchState.brake;
 
-        player.update();
-        player.draw(ctx, player.tilt, true, (keys['Space'] || keys['KeyS']));
-
-        // Traffic Spawning with Collision Check
-        if (frameCount % 45 === 0 && gameSpeed > 2) {
-            const lane = Math.floor(Math.random() * LANE_COUNT);
-            const isLaneOccupied = traffic.some(car => car.lane === lane && car.y < 200);
-            if (!isLaneOccupied) {
-                traffic.push(new Obstacle(lane));
-            }
+        if (isAccelerating) {
+            let accelPower = (currentGear === 0) ? 550 : (1 - (rpm / MAX_RPM)) * 180; 
+            rpm += accelPower + (isNitro ? 120 : 0);
+        } else {
+            rpm -= 180;
         }
 
+        let isBouncing = false;
+        if (rpm >= MAX_RPM) {
+            rpm = MAX_RPM - 400;
+            isBouncing = true;
+            // Limiters trigger a small stututu if very high
+            if (Math.random() > 0.8) engine.stututu(0.3);
+        }
+        rpm = Math.max(800, rpm);
+
+        let targetSpeed = 0;
+        if (currentGear > 0) {
+            targetSpeed = (rpm / MAX_RPM) * MAX_SPEEDS[currentGear];
+            if (isNitro) targetSpeed += 40;
+            gameSpeed += (targetSpeed/10 - gameSpeed) * 0.05;
+        } else {
+            gameSpeed *= 0.99;
+        }
+
+        if (isBraking) gameSpeed *= 0.95;
+        if (gameSpeed < 0.01) gameSpeed = 0;
+
+        document.getElementById('speedo').innerText = Math.floor(gameSpeed * 10);
+        const rpmPerc = (rpm / MAX_RPM) * 100;
+        rpmFill.style.width = rpmPerc + '%';
+        rpmFill.className = rpm > REDLINE ? 'redline-blink' : '';
+        
+        nitroAmount = Math.min(100, nitroAmount + (isNitro ? -0.8 : 0.05));
+        document.getElementById('nitro-fill').style.width = nitroAmount + '%';
+        document.getElementById('nitro-percent').innerText = Math.floor(nitroAmount) + '%';
+        document.getElementById('score').innerText = Math.floor(score).toString().padStart(6, '0');
+
+        engine.update(rpm, isNitro, isBouncing);
+
+        ctx.fillStyle = '#0f0f12';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        distance += gameSpeed;
+        ctx.setLineDash([40, 60]);
+        ctx.lineDashOffset = -distance;
+        ctx.strokeStyle = '#333';
+        ctx.lineWidth = 2;
+        for(let i=1; i<4; i++) {
+            ctx.beginPath(); ctx.moveTo(i * (canvas.width/4), 0); ctx.lineTo(i * (canvas.width/4), canvas.height); ctx.stroke();
+        }
+
+        if(keys['KeyA'] || keys['ArrowLeft'] || touchState.left) { playerX -= 8; playerTilt = -0.1; }
+        else if(keys['KeyD'] || keys['ArrowRight'] || touchState.right) { playerX += 8; playerTilt = 0.1; }
+        else { playerTilt *= 0.8; }
+        playerX = Math.max(10, Math.min(canvas.width - 66, playerX));
+
+        const player = new Vehicle(playerX, canvas.height - 180, '#ef4444');
+        player.draw(ctx, playerTilt, true);
+
+        if (frameCount % 40 === 0 && gameSpeed > 2) {
+            traffic.push({
+                x: Math.floor(Math.random() * 4) * (canvas.width/4) + (canvas.width/8) - 28,
+                y: -150,
+                speed: 5 + Math.random() * 5,
+                color: '#3b82f6'
+            });
+        }
+        frameCount++;
+
         for (let i = traffic.length - 1; i >= 0; i--) {
-            const car = traffic[i];
-            car.update();
-            car.draw(ctx);
+            let t = traffic[i];
+            t.y += (gameSpeed - t.speed);
+            const carObj = new Vehicle(t.x, t.y, t.color);
+            carObj.draw(ctx);
 
-            // Enhanced Collision Detection (No safe zones!)
-            const dx = player.x - car.x;
-            const dy = player.y - car.y;
-            if (Math.abs(dx) < 52 && Math.abs(dy) < 95) {
+            if (Math.abs(playerX - t.x) < 50 && Math.abs((canvas.height-180) - t.y) < 90) {
                 gameActive = false;
-                if(score > hiScore) {
-                    hiScore = Math.floor(score);
-                    localStorage.setItem('hiScore', hiScore);
-                    hiScoreLabel.innerText = `BEST: ${hiScore.toString().padStart(6, '0')}`;
-                }
-                gameOverMenu.classList.remove('hidden');
-                document.getElementById('final-score').innerText = `SCORE: ${Math.floor(score).toString().padStart(6, '0')}`;
+                document.getElementById('game-over').classList.remove('hidden');
+                document.getElementById('final-score').innerText = `SCORE: ${Math.floor(score)}`;
             }
 
-            if (!car.nearMissed && Math.abs(dx) < 85 && Math.abs(dy) < 60) {
-                score += 500;
-                car.nearMissed = true;
-                createNearMiss(player.x, player.y);
-            }
-
-            if (car.y > canvas.height + 150) {
-                score += gameSpeed * 5;
+            if (t.y > canvas.height + 100) {
+                score += 100 + (gameSpeed * 2);
                 traffic.splice(i, 1);
             }
         }
-
-        for (let i = particles.length - 1; i >= 0; i--) {
-            particles[i].update();
-            particles[i].draw(ctx);
-            if (particles[i].life <= 0) particles.splice(i, 1);
-        }
-
-        scoreEl.innerText = Math.floor(score).toString().padStart(6, '0');
-        speedoEl.innerText = Math.floor(gameSpeed * 8);
-
-        ctx.restore();
         requestAnimationFrame(gameLoop);
     }
 </script>
